@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+*.egg-info/
+.venv/
+.pytest_cache/
+build/
+dist/
+# generato da packaging/wheel.sh (incluso nella wheel) o da `python -m chess_me.build_openings`
+src/chess_me/data/openings.sqlite

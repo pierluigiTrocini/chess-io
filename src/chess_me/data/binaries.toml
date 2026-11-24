@@ -1,0 +1,28 @@
+# Binari ufficiali scaricati da `chess-me setup` quando non c'è il bundle (installazione con pipx).
+# Ogni archivio è pinnato con SHA256 (digest delle release GitHub): un hash diverso blocca l'installazione.
+# Chiave: "<sistema>-<architettura>" come restituito da platform.system().lower() e platform.machine().lower().
+
+[stockfish."darwin-arm64"]
+url = "https://github.com/official-stockfish/Stockfish/releases/download/sf_18/stockfish-macos-m1-apple-silicon.tar"
+sha256 = "4d77c4aa3ad9bd1ea8111f2ac5a4620fe7ebf998d6893bf828d49ccd579c8cb0"
+member = "stockfish-macos-m1-apple-silicon"
+
+[stockfish."linux-x86_64"]
+url = "https://github.com/official-stockfish/Stockfish/releases/download/sf_18/stockfish-ubuntu-x86-64-avx2.tar"
+sha256 = "536c0c2c0cf06450df0bfb5e876ef0d3119950703a8f143627f990c7b5417964"
+member = "stockfish-ubuntu-x86-64-avx2"
+
+[llama."darwin-arm64"]
+url = "https://github.com/ggml-org/llama.cpp/releases/download/b12359/llama-b12359-bin-macos-arm64.tar.gz"
+sha256 = "82b00abc740160e1b9980e6cc79c117345fa34af058c80e6c0a69aa8ddccde75"
+member = "llama-server"
+
+[llama."linux-x86_64"]
+url = "https://github.com/ggml-org/llama.cpp/releases/download/b12359/llama-b12359-bin-ubuntu-x64.tar.gz"
+sha256 = "0bc1f091e8916102b6d8f2cf944233a620e90a0f856c72d0ce41150c65c2e72e"
+member = "llama-server"
+
+[openings]
+# lichess-org/chess-openings (CC0): TSV da cui build_openings.py genera openings.sqlite
+base = "https://raw.githubusercontent.com/lichess-org/chess-openings/master/"
+files = ["a.tsv", "b.tsv", "c.tsv", "d.tsv", "e.tsv"]

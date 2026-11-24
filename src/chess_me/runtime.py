@@ -1,0 +1,131 @@
+"""Dove stanno le risorse della CLI (Stockfish, llama-server, aperture, modello) e configurazione dell'ambiente.
+
+È l'unico modulo che conosce i percorsi. Va chiamato `bootstrap()` PRIMA di importare qualunque altro modulo
+`chess_me.*`, perché `chess_me.config` e `chess_me.llm.server` leggono le variabili d'ambiente all'import.
+
+Ordine di ricerca: variabile d'ambiente esplicita → cartella del bundle (eseguibile PyInstaller) →
+dati utente (~/.local/share/chess-me) → dati del pacchetto (wheel) → PATH di sistema.
+"""
+import atexit
+import os
+import shutil
+import socket
+import sys
+import tempfile
+from dataclasses import dataclass
+from pathlib import Path
+
+MODEL_FILE = "Qwen3-1.7B-Q4_K_M.gguf"
+_EXE = ".exe" if os.name == "nt" else ""
+
+
+def data_home() -> Path:
+    """Cartella dei dati utente: binari scaricati, modello LLM, prompt personalizzati."""
+    if os.environ.get("CHESSME_HOME"):
+        return Path(os.environ["CHESSME_HOME"]).expanduser()
+    base = os.environ.get("XDG_DATA_HOME") or str(Path.home() / ".local" / "share")
+    return Path(base).expanduser() / "chess-me"
+
+
+def bundle_root() -> Path | None:
+    """Radice della cartella self-contained, se si gira dall'eseguibile PyInstaller."""
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent
+    return None
+
+
+def package_data() -> Path:
+    return Path(__file__).resolve().parent / "data"
+
+
+@dataclass
+class Resources:
+    stockfish: Path | None
+    llama_server: Path | None
+    openings: Path | None
+    model: Path
+    prompts: Path | None
+    bundle: Path | None
+    home: Path
+
+    def describe(self) -> list[tuple[str, str, bool]]:
+        def show(p: Path | None, missing: str) -> tuple[str, bool]:
+            return (str(p), True) if p else (missing, False)
+        return [
+            ("Stockfish", *show(self.stockfish, "non trovato (chess-me setup)")),
+            ("Aperture", *show(self.openings, "non trovate: niente riconoscimento della teoria")),
+            ("llama-server", *show(self.llama_server, "non trovato: --llm non disponibile")),
+            ("Modello LLM", str(self.model) if self.model.is_file() else f"{self.model} (si scarica al primo --llm)",
+             self.model.is_file()),
+            ("Prompt", str(self.prompts) if self.prompts else "predefiniti", True),
+            ("Bundle", str(self.bundle) if self.bundle else "no (Python)", True),
+            ("Dati utente", str(self.home), True),
+        ]
+
+
+def _first_file(*cands: Path | None) -> Path | None:
+    for c in cands:
+        if c is not None and c.is_file():
+            return c
+    return None
+
+
+def _env_path(name: str) -> Path | None:
+    v = os.environ.get(name)
+    if not v:
+        return None
+    p = Path(v).expanduser()
+    if p.is_file():
+        return p
+    found = shutil.which(v)
+    return Path(found) if found else None
+
+
+def _which(name: str) -> Path | None:
+    found = shutil.which(name)
+    return Path(found) if found else None
+
+
+def resolve() -> Resources:
+    bundle = bundle_root()
+    home = data_home()
+    pkg = package_data()
+    b = (lambda *p: bundle.joinpath(*p)) if bundle else (lambda *p: None)
+    stockfish = _env_path("STOCKFISH_PATH") or _first_file(b("bin", "stockfish" + _EXE),
+                                                             home / "bin" / ("stockfish" + _EXE)) or _which("stockfish")
+    llama = _env_path("LLM_SERVER_PATH") or _first_file(b("bin", "llama-server" + _EXE),
+                                                         home / "bin" / "llama" / ("llama-server" + _EXE),
+                                                         home / "bin" / ("llama-server" + _EXE)) or _which("llama-server")
+    openings = _first_file(Path(os.environ["OPENINGS_DB"]) if os.environ.get("OPENINGS_DB") else None,
+                           b("share", "openings.sqlite"), pkg / "openings.sqlite", home / "openings.sqlite",
+                           Path("openings.sqlite"))
+    model = Path(os.environ["LLM_MODEL_PATH"]) if os.environ.get("LLM_MODEL_PATH") else home / "models" / MODEL_FILE
+    prompts = _first_file(home / "prompts.toml")
+    return Resources(stockfish, llama, openings, model, prompts, bundle, home)
+
+
+def _free_port() -> int:
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
+
+
+def bootstrap(depth: int | None = None) -> Resources:
+    """Imposta l'ambiente per i moduli `chess_me.*`. Nessun file persistente: DATA_DIR è temporanea."""
+    res = resolve()
+    tmp = Path(tempfile.mkdtemp(prefix="chess-me-"))
+    atexit.register(shutil.rmtree, tmp, True)
+    if res.prompts:
+        shutil.copyfile(res.prompts, tmp / "prompts.toml")  # llm.prompts legge DATA_DIR/prompts.toml
+    env = {
+        "DATA_DIR": str(tmp),
+        "STOCKFISH_PATH": str(res.stockfish or "stockfish"),
+        "OPENINGS_DB": str(res.openings or tmp / "no-openings.sqlite"),
+        "LLM_SERVER_PATH": str(res.llama_server or tmp / "no-llama-server"),
+        "LLM_MODEL_PATH": str(res.model),
+        "LLM_PORT": str(_free_port()),
+    }
+    os.environ.update(env)
+    if depth:
+        os.environ["ANALYSIS_DEPTH"] = str(depth)
+    return res
