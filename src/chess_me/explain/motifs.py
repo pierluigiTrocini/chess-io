@@ -1,12 +1,13 @@
 """Riconoscimento di motivi tattici e posizionali con python-chess."""
 import chess
 
-from ..review.material import PIECE_ARTICLE_IT, PIECE_NAMES_IT, value
+from ..i18n import piece_on, tr
+from ..review.material import value
 
 
 def _name(board: chess.Board, sq: chess.Square) -> str:
     p = board.piece_at(sq)
-    return f"{PIECE_ARTICLE_IT[p.piece_type]} in {chess.square_name(sq)}" if p else chess.square_name(sq)
+    return piece_on(p.piece_type, sq) if p else chess.square_name(sq)
 
 
 def fork_targets(board_after: chess.Board, sq: chess.Square) -> list[str]:
@@ -97,21 +98,21 @@ def positional_notes(board_before: chess.Board, move: chess.Move) -> list[str]:
     if piece is None:
         return notes
     if piece.piece_type == chess.KING and not board_before.is_castling(move) and board_before.has_castling_rights(color):
-        notes.append("perdi il diritto di arroccare")
+        notes.append(tr("perdi il diritto di arroccare"))
     if piece.piece_type == chess.QUEEN and ply < 14:
-        notes.append("la donna esce troppo presto e può diventare un bersaglio")
+        notes.append(tr("la donna esce troppo presto e può diventare un bersaglio"))
     if ply < 20 and piece.piece_type in (chess.KNIGHT, chess.BISHOP) and not board_before.is_capture(move):
         home = chess.BB_RANK_1 if color == chess.WHITE else chess.BB_RANK_8
         if not (chess.BB_SQUARES[move.from_square] & home):
             undeveloped = [s for s in board_before.pieces(chess.KNIGHT, color) | board_before.pieces(chess.BISHOP, color)
                            if chess.BB_SQUARES[s] & home]
             if len(undeveloped) >= 2:
-                notes.append("muovi di nuovo lo stesso pezzo invece di sviluppare gli altri")
+                notes.append(tr("muovi di nuovo lo stesso pezzo invece di sviluppare gli altri"))
     if piece.piece_type == chess.PAWN and ply < 30:
         king = board_before.king(color)
         if king is not None and abs(chess.square_file(king) - chess.square_file(move.from_square)) <= 1 \
                 and chess.square_file(king) in (0, 1, 2, 5, 6, 7):
-            notes.append("indebolisci la struttura di pedoni davanti al tuo re")
+            notes.append(tr("indebolisci la struttura di pedoni davanti al tuo re"))
     after = board_before.copy(stack=False)
     after.push(move)
     to = move.to_square
@@ -119,5 +120,5 @@ def positional_notes(board_before: chess.Board, move: chess.Move) -> list[str]:
         after.turn = color  # mobilità del pezzo come se toccasse di nuovo a noi
         mobility = sum(1 for m in after.pseudo_legal_moves if m.from_square == to)
         if mobility <= 1:
-            notes.append(f"{PIECE_ARTICLE_IT[piece.piece_type]} in {chess.square_name(to)} ha pochissime case a disposizione")
+            notes.append(tr("{piece} ha pochissime case a disposizione", piece=piece_on(piece.piece_type, to)))
     return notes

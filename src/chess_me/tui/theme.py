@@ -1,14 +1,19 @@
 """Etichette, simboli e colori delle classi di mossa e della scacchiera."""
 from dataclasses import dataclass
 
+from ..i18n import tr
 from ..review.winprob import win_percent
 
 
 @dataclass(frozen=True)
 class ClassMeta:
-    label: str
+    label_it: str
     sym: str
     color: str
+
+    @property
+    def label(self) -> str:
+        return tr(self.label_it)
 
 
 CLASS_META: dict[str, ClassMeta] = {
@@ -38,10 +43,33 @@ WHITE_PIECE = "#ffffff"
 BLACK_PIECE = "#111111"
 BAR_WHITE = "#f0f0f0"
 BAR_BLACK = "#403d39"
+GRAPH_WHITE = "#b4b1aa"   # grafico più tenue della barra: non deve dominare lo schermo
+GRAPH_BLACK = "#2b2a28"
+GRAPH_MID = "#55524d"
+ACCENT_LIGHT = "#a3c4de"
 GOOD = "#81b64c"
 BAD = "#ca3431"
 ACCENT = "#5b8bb0"
 MUTED = "#8a8a8a"
+
+def luminance(color: str) -> float:
+    """Luminanza relativa (WCAG) di un colore #rrggbb."""
+    def ch(v: int) -> float:
+        x = v / 255
+        return x / 12.92 if x <= 0.03928 else ((x + 0.055) / 1.055) ** 2.4
+    r, g, b = (int(color[i:i + 2], 16) for i in (1, 3, 5))
+    return 0.2126 * ch(r) + 0.7152 * ch(g) + 0.0722 * ch(b)
+
+
+def contrast(a: str, b: str) -> float:
+    la, lb = sorted((luminance(a), luminance(b)), reverse=True)
+    return (la + 0.05) / (lb + 0.05)
+
+
+def ink(bg: str) -> str:
+    """Bianco o nero, quello che si legge meglio su bg."""
+    return "#ffffff" if contrast("#ffffff", bg) >= contrast("#111111", bg) else "#111111"
+
 
 PIECES = {"k": "♚", "q": "♛", "r": "♜", "b": "♝", "n": "♞", "p": "♟"}
 
@@ -61,12 +89,24 @@ def white_win(cp: int | None, mate: int | None) -> float:
     return win_percent(cp or 0)
 
 
-def result_text(result: str, color: str) -> str:
-    if result == "*":
-        return "Non terminata"
+def result_code(result: str, color: str) -> str:
+    """'unfinished' | 'draw' | 'win' | 'loss' dal punto di vista di `color`."""
+    if result not in ("1-0", "0-1", "1/2-1/2"):
+        return "unfinished"
     if result == "1/2-1/2":
-        return "Patta"
-    return "Vittoria" if (result == "1-0") == (color == "white") else "Sconfitta"
+        return "draw"
+    return "win" if (result == "1-0") == (color == "white") else "loss"
+
+
+RESULT_IT = {"unfinished": "Non terminata", "draw": "Patta", "win": "Vittoria", "loss": "Sconfitta"}
+
+
+def result_text(result: str, color: str) -> str:
+    return tr(RESULT_IT[result_code(result, color)])
 
 
 TIME_CLASS_IT = {"bullet": "Bullet", "blitz": "Blitz", "rapid": "Rapid", "classical": "Classica", "daily": "Daily"}
+
+
+def time_class_text(tc: str | None) -> str | None:
+    return tr(TIME_CLASS_IT[tc]) if tc in TIME_CLASS_IT else None

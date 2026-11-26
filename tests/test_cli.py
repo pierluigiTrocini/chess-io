@@ -34,9 +34,9 @@ def test_parser_accepts_single_dash_pgn():
     assert a.link and a.pgn is None
 
 
-def test_parser_requires_exactly_one_source(capsys):
-    with pytest.raises(SystemExit):
-        cli_main.build_parser().parse_args([])
+def test_parser_source_optional_but_exclusive(capsys):
+    a = cli_main.build_parser().parse_args([])           # nessuna sorgente: schermata di ricerca
+    assert (a.link, a.pgn, a.user) == (None, None, None)
     with pytest.raises(SystemExit):
         cli_main.build_parser().parse_args(["-l", "x", "-pgn", "y"])
 
@@ -68,6 +68,22 @@ def test_load_and_pick_multiple_games():
         session.pick(loaded, 3)
     with pytest.raises(session.InputError):
         asyncio.run(session.load(pgn="[Event \"x\"]\n\n*"))
+
+
+def test_user_option_and_color_from_username(monkeypatch):
+    a = cli_main.build_parser().parse_args(["-u", "lichess", "magnus_fan"])
+    assert a.user == ["lichess", "magnus_fan"] and a.link is None and a.pgn is None
+    two = PGN + "\n\n" + PGN.replace("magnus_fan", "altro")
+
+    async def fake_fetch(platform, user, n=50, client=None):
+        return two
+    monkeypatch.setattr(session.sources, "fetch_user_games", fake_fetch)
+    loaded = asyncio.run(session.load(user=("lichess", "MAGNUS_FAN")))
+    assert loaded.username == "MAGNUS_FAN" and session.pick(loaded, None) is None
+    first, second = loaded.candidates
+    assert loaded.color_for(first) == ("white" if first.white == "magnus_fan" else "black")
+    assert loaded.color_for(second) is None          # l'utente non gioca: si chiede il colore
+    assert cli_main.main(["-u", "fics", "x"]) == 2
 
 
 # ---------- risorse ----------
@@ -155,6 +171,8 @@ def test_tui_navigation_variation_and_summary():
             await pilot.pause()
             scr = app.screen
             assert isinstance(scr, ReviewScreen) and scr.idx == -1          # si parte dall'inizio
+            brief = scr.query_one("#brief")
+            assert brief.display and "In breve" in str(brief.render())       # riassunto breve sotto la scacchiera
             for _ in range(7):
                 await pilot.press("right")
             assert scr.idx == 6
@@ -179,6 +197,71 @@ def test_tui_navigation_variation_and_summary():
             assert scr.query_one(BoardView).orientation is False
             await pilot.press("q")
     asyncio.run(run())
+
+
+def test_tui_search_screen_to_game_list(monkeypatch, tmp_path):
+    from textual.widgets import Input
+    from chess_me import pgn as pgn_parse
+    from chess_me.tui.app import ChessMeApp
+    from chess_me.tui.screens import PickScreen, SearchScreen
+
+    calls = []
+
+    async def fake_load(user=None, **kw):
+        calls.append(user)
+        if user[1] == "nessuno":
+            raise session.InputError("Lichess, utente nessuno: non trovato")
+        return session.Loaded(pgn_parse.parse_many(PGN + "\n" + PGN), None, "Lichess · Tu", "Tu")
+    monkeypatch.setattr(session, "load", fake_load)
+    monkeypatch.setenv("CHESSME_HOME", str(tmp_path))
+
+    async def run():
+        app = ChessMeApp(None, None, None, 16, False)
+        async with app.run_test(size=(120, 34)) as pilot:
+            await pilot.pause()
+            scr = app.screen
+            assert isinstance(scr, SearchScreen)
+            await pilot.press("x", "enter")                      # nome troppo corto
+            await pilot.pause()
+            assert "non valido" in str(scr.query_one("#status").render()) and not calls
+            scr.query_one("#username", Input).value = "nessuno"
+            await pilot.press("enter")
+            await pilot.pause()
+            assert "non trovato" in str(scr.query_one("#status").render())
+            assert not scr.query_one("#username").disabled
+            scr.query_one("#username", Input).value = "Tu"
+            await pilot.press("enter")
+            await pilot.pause()
+            assert calls[-1] == ("lichess", "Tu")
+            assert isinstance(app.screen, PickScreen)
+            await pilot.press("escape")                          # torna alla ricerca
+            await pilot.pause()
+            assert app.screen is scr and app.is_running
+    asyncio.run(run())
+    assert runtime.load_last_search() == ("lichess", "Tu")   # salvata solo la ricerca riuscita
+
+
+def test_tui_search_screen_prefills_last_search(monkeypatch, tmp_path):
+    from textual.widgets import Input, RadioSet
+    from chess_me.tui.app import ChessMeApp
+    monkeypatch.setenv("CHESSME_HOME", str(tmp_path))
+    runtime.save_last_search("chesscom", "Hikaru")
+
+    async def run():
+        app = ChessMeApp(None, None, None, 16, False)
+        async with app.run_test(size=(120, 34)) as pilot:
+            await pilot.pause()
+            scr = app.screen
+            assert scr.query_one("#username", Input).value == "Hikaru"
+            assert scr.query_one("#platform", RadioSet).pressed_button.id == "chesscom"
+            assert scr.platform == "chesscom"
+    asyncio.run(run())
+
+
+def test_last_search_corrupt_file_is_ignored(monkeypatch, tmp_path):
+    monkeypatch.setenv("CHESSME_HOME", str(tmp_path))
+    (tmp_path / runtime.LAST_SEARCH_FILE).write_text("{non json")
+    assert runtime.load_last_search() is None
 
 
 def test_tui_autoplay_stops_on_salient_move():
@@ -219,3 +302,10 @@ def test_analyse_real_game_in_memory():
     assert rv.summary["accuracy_white"] < rv.summary["accuracy_black"]
     assert rv.summary["text"]["critical"]
     assert set(os.listdir(config.DATA_DIR)) == before                    # nessun file scritto
+
+
+def test_board_fit_and_contrast():
+    from chess_me.tui import board, theme
+    assert board.fit_cell(150 - 52, 29) == (7, 3) and board.fit_cell(40, 30) == (3, 1)
+    assert theme.ink(theme.LAST_LIGHT) == "#111111" and theme.ink("#3a2020") == "#ffffff"
+    assert theme.contrast("#ffffff", "#000000") > 20

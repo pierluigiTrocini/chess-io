@@ -1,27 +1,45 @@
 # chess-me
 
-Revisione delle tue partite a scacchi nel terminale. Dai un link di Lichess / chess.com o un PGN: la partita viene analizzata in locale con Stockfish e la rivedi in una TUI a colori, con classificazione delle mosse, accuratezza, commenti argomentati in italiano, varianti migliori e confutazioni, e un **riassunto finale** con i momenti critici e i consigli. Nulla viene salvato: l'analisi resta in memoria finché la TUI è aperta.
+Revisione delle tue partite a scacchi nel terminale. Dai un link di Lichess / chess.com o un PGN: la partita viene analizzata in locale con Stockfish e la rivedi in una TUI a colori, con classificazione delle mosse, accuratezza, commenti argomentati, varianti migliori e confutazioni, e un **riassunto finale** con i momenti critici e i consigli (in breve anche sotto la scacchiera). Interfaccia, commenti e riassunto sono in **italiano, inglese o spagnolo** (vedi [Lingua](#lingua)). Nulla viene salvato: l'analisi resta in memoria finché la TUI è aperta.
 
 ## Uso
 
 ```bash
+chess-me                                         # ricerca: piattaforma + nome utente → elenco partite
 chess-me -l https://lichess.org/abcd1234        # oppure chess.com/game/live/… o /daily/…
+chess-me -u lichess nome_utente                  # scegli tra le sue ultime 50 partite
+chess-me -u chess.com nome_utente
 chess-me -pgn partita.pgn                        # file .pgn
 chess-me -pgn '1. e4 e5 2. Nf3 Nc6 …'            # PGN incollato
 pbpaste | chess-me -pgn -                        # PGN da stdin
 chess-me -pgn partita.pgn --color black --depth 18 --llm
+chess-me --lang en -u lichess nome_utente        # in inglese, solo per questa volta
 ```
 
 | Opzione | Significato |
 |---|---|
 | `-l`, `--link` | link a una partita di lichess.org o chess.com |
+| `-u`, `--user PIATTAFORMA UTENTE` | elenco interattivo delle ultime 50 partite dell'utente (`lichess` o `chess.com`): si sceglie quella da analizzare; il colore si ricava dal nome |
 | `-pgn`, `-p`, `--pgn` | file, testo PGN, oppure `-` per stdin |
 | `-c`, `--color white\|black\|auto` | il tuo colore; con `auto` si ricava dal link Lichess o viene chiesto |
 | `-d`, `--depth N` | profondità di Stockfish per posizione (default 16) |
 | `-g`, `--game N` | PGN con più partite: analizza la N-esima (altrimenti si sceglie a schermo) |
 | `--llm` | commenti e riassunto riscritti dall'LLM locale, verificati |
+| `--lang it\|en\|es` | lingua di interfaccia e commenti solo per questa esecuzione (anche l'aiuto `-h`) |
 
-Altri comandi: `chess-me doctor` (dove sono Stockfish, aperture, llama-server, modello), `chess-me setup [--llm] [--yes]` (scarica ciò che manca, per l'installazione con pip/pipx), `chess-me remove-model`.
+Altri comandi: `chess-me doctor` (dove sono Stockfish, aperture, llama-server, modello, e la lingua), `chess-me setup [--llm] [--yes]` (scarica ciò che manca, per l'installazione con pip/pipx), `chess-me remove-model`, `chess-me lang [it|en|es]` (mostra o imposta la lingua predefinita).
+
+## Lingua
+
+Tre lingue: italiano (`it`, predefinita), inglese (`en`), spagnolo (`es`). Valgono per tutto: interfaccia, messaggi, commenti alle mosse, riassunto e, con `--llm`, i testi riscritti dal modello (ogni lingua ha i suoi prompt e il suo vocabolario per il controllo anti-allucinazioni). Le mosse restano in notazione inglese (Nf3, Qxf7#).
+
+La lingua si sceglie:
+
+- **all'installazione**: è la prima schermata di `./install.sh` (oppure `./install.sh --lang en`); da lì in avanti anche l'installer parla quella lingua;
+- **prima di cercare la partita**: nella schermata di ricerca (`chess-me` senza opzioni) c'è il selettore della lingua, F2 la cambia al volo; la scelta diventa la nuova predefinita;
+- da riga di comando: `chess-me lang es` la imposta come predefinita, `chess-me --lang es …` la usa solo per quella volta.
+
+Ordine di precedenza: `--lang` → variabile `CHESSME_LANG` → impostazione salvata (`~/.local/share/chess-me/settings.json`) → italiano. I commenti si scrivono al momento dell'analisi, quindi la lingua va scelta prima di aprire la partita.
 
 ## La revisione
 
@@ -38,17 +56,19 @@ Si parte dalla posizione iniziale. A schermo: scacchiera (ultima mossa colorata 
 | `f` · `c` | gira la scacchiera · cambia il tuo colore (ricalcola il riassunto) |
 | `?` · `q` | aiuto · esci |
 
-Link e PGN: Lichess usa l'API pubblica; per chess.com il link passa da un endpoint non ufficiale (`/callback/...`), se smette di funzionare basta incollare il PGN. Si leggono partite di scacchi standard, anche da posizione (FEN), non Chess960 o altre varianti.
+Link e PGN: Lichess usa l'API pubblica (con `-u`, `/api/games/user`, solo varianti standard); chess.com con `-u` legge gli archivi mensili pubblici (`api.chess.com/pub`); per chess.com il link passa da un endpoint non ufficiale (`/callback/...`), se smette di funzionare basta incollare il PGN. Si leggono partite di scacchi standard, anche da posizione (FEN), non Chess960 o altre varianti.
 
 ## Installazione
 
 Serve Python ≥ 3.12 (tranne per la cartella self-contained). Tre strade, dalla più semplice:
 
-**`install.sh`** (dal sorgente, sceglie da solo pipx o pip e scarica Stockfish e aperture):
+**`install.sh`**: installer interattivo da terminale, con menu a tutto schermo come la ricerca delle partite (↑/↓ per muoversi, Spazio per spuntare, Invio per confermare, Esc per tornare indietro, q per uscire). La prima schermata chiede la lingua predefinita (italiano, English, español), che vale anche per il resto dell'installer. Mostra cosa è già presente e cosa manca, ti fa scegliere i componenti (Stockfish, database delle aperture, LLM locale: llama-server + modello) con le dimensioni dei download, il metodo (pipx o venv dedicato) e controlla lo spazio su disco. Durante l'installazione mostra il passo corrente sul totale e, per ogni download, una barra con percentuale, velocità ed ETA; gli archivi sono verificati con SHA256 e un download interrotto riprende da dove si era fermato. Se chess-me è già installato propone di aggiornarlo o disinstallarlo.
 
 ```bash
-./install.sh            # pipx se c'è, altrimenti pip in un venv dedicato (~/.local/share/chess-me/venv)
-./install.sh --llm      # in più llama-server (~17 MB) e il modello LLM (~1,1 GB)
+./install.sh                    # menu interattivo
+./install.sh --yes              # senza domande: chess-me + Stockfish + aperture
+./install.sh --yes --llm        # in più llama-server (~17 MB) e il modello LLM (~1,1 GB)
+./install.sh --yes --lang en    # lingua predefinita inglese (senza --lang: quella salvata o del sistema)
 ./install.sh --uninstall [--purge]
 ```
 
@@ -80,7 +100,7 @@ Le risorse si cercano in quest'ordine: variabile d'ambiente (`STOCKFISH_PATH`, `
 
 Con `--llm` il modello **Qwen3 1.7B Q4_K_M** (Apache 2.0, ~1,1 GB) servito da `llama-server` riscrive in modo più discorsivo i commenti non banali (imprecisioni, errori, occasioni perse, ottime e brillanti) e il riassunto, in background mentre già navighi la partita. Il modello non è nel pacchetto: al primo uso chiede conferma e lo scarica da Hugging Face in `~/.local/share/chess-me/models`, con verifica SHA256.
 
-Ogni testo dell'LLM viene scartato (e si mostra il template) se cita mosse, pezzi o concetti (vantaggio, matto, minaccia…) assenti dal testo originale, o se usa il nome di un'altra classe. I prompt sono in [`src/chess_me/data/prompts.toml`](src/chess_me/data/prompts.toml); per modificarli copialo in `~/.local/share/chess-me/prompts.toml`, che ha la precedenza.
+Ogni testo dell'LLM viene scartato (e si mostra il template) se cita mosse, pezzi o concetti (vantaggio, matto, minaccia…) assenti dal testo originale, o se usa il nome di un'altra classe. I prompt sono in [`src/chess_me/data/prompts.toml`](src/chess_me/data/prompts.toml) (italiano), [`prompts.en.toml`](src/chess_me/data/prompts.en.toml) e [`prompts.es.toml`](src/chess_me/data/prompts.es.toml); per modificarne uno copialo in `~/.local/share/chess-me/` con lo stesso nome, che ha la precedenza. Il vocabolario del controllo (pezzi, concetti, termini delle classi) è in `VOCAB` in [`src/chess_me/llm/humanize.py`](src/chess_me/llm/humanize.py).
 
 ## Parametri
 
@@ -102,6 +122,8 @@ chess-me -pgn partita.pgn               # oppure: python -m chess_me -pgn partit
 pytest                                  # i test col motore si saltano se manca Stockfish
 ```
 
+Testi nuovi: scrivili in italiano dentro `tr("…")` (segnaposto alla `str.format`, `_ctx=` se in un'altra lingua lo stesso testo si traduce in due modi) e aggiungi la traduzione in [`locales/en.py`](src/chess_me/locales/en.py) e [`locales/es.py`](src/chess_me/locales/es.py): `tests/test_i18n.py` fallisce se ne manca una o se i segnaposto non coincidono.
+
 Test completi (con Stockfish compilato nel container):
 
 ```bash
@@ -119,7 +141,7 @@ docker build --platform linux/amd64 --target cli-export --output dist/ .  # cart
 ## Struttura
 
 ```
-install.sh             installazione unica: sorgente/wheel (pipx o pip) oppure cartella self-contained
+install.sh             installer interattivo: sorgente/wheel (pipx o pip) oppure cartella self-contained
 pyproject.toml         pacchetto chess-me, comando `chess-me`, extra [dev] e [bundle]
 src/chess_me/
   cli.py               argomenti e comandi (doctor, setup, remove-model)
@@ -130,10 +152,11 @@ src/chess_me/
   engine.py            processo Stockfish
   openings.py          riconoscimento delle aperture (+ build_openings.py che genera il database)
   review/              pipeline di analisi, classificazione (expected points), accuratezza, sacrifici
-  explain/             fatti verificabili (linee del motore, motivi tattici) → commenti e riassunto in italiano
+  i18n.py · locales/   lingua corrente, tr(), pezzi per lingua · cataloghi en.py ed es.py (chiave = testo italiano)
+  explain/             fatti verificabili (linee del motore, motivi tattici) → commenti e riassunto nella lingua scelta
   llm/                 llama-server, download del modello, riscrittura verificata, job in background
   tui/                 interfaccia Textual (scacchiera, pannelli, schermate, colori)
-  data/                prompts.toml, binaries.toml (+ openings.sqlite se generato)
+  data/                prompts.toml (+ .en, .es), binaries.toml (+ openings.sqlite se generato)
 tests/
 packaging/             bundle PyInstaller (bundle.sh, chess-me.spec), wheel.sh, README del bundle
 Dockerfile             test e bundle Linux

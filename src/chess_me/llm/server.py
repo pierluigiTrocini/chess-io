@@ -13,6 +13,7 @@ from pathlib import Path
 import httpx
 
 from .. import config
+from ..i18n import tr
 
 log = logging.getLogger(__name__)
 
@@ -77,13 +78,13 @@ async def ensure_model(client: httpx.AsyncClient | None = None) -> None:
                         sha.update(chunk)
                         download["done"] += len(chunk)
             if MODEL_SHA256 and sha.hexdigest() != MODEL_SHA256:
-                raise RuntimeError("il file scaricato non corrisponde (SHA256 diverso)")
+                raise RuntimeError(tr("il file scaricato non corrisponde (SHA256 diverso)"))
             tmp.replace(MODEL_PATH)
             download.update(status="idle", error=None)
             log.info("modello salvato in %s", MODEL_PATH)
         except Exception as e:
             tmp.unlink(missing_ok=True)
-            msg = f"download del modello fallito: {e}"
+            msg = tr("download del modello fallito: {error}", error=e)
             download.update(status="error", error=msg)
             raise RuntimeError(msg) from e
         finally:
@@ -109,7 +110,7 @@ async def _healthy(client: httpx.AsyncClient) -> bool:
 async def ensure_started(timeout_s: float = 120) -> None:
     global _proc
     if not available():
-        raise RuntimeError("llama-server non trovato")
+        raise RuntimeError(tr("llama-server non trovato"))
     await ensure_model()
     async with _lock:
         if running():
@@ -125,12 +126,12 @@ async def ensure_started(timeout_s: float = 120) -> None:
             deadline = loop.time() + timeout_s
             while loop.time() < deadline:
                 if _proc.returncode is not None:
-                    raise RuntimeError(f"llama-server terminato (codice {_proc.returncode})")
+                    raise RuntimeError(tr("llama-server terminato (codice {code})", code=_proc.returncode))
                 if await _healthy(client):
                     log.info("llama-server pronto")
                     return
                 await asyncio.sleep(0.5)
-        raise RuntimeError("llama-server non risponde")
+        raise RuntimeError(tr("llama-server non risponde"))
 
 
 async def stop() -> None:

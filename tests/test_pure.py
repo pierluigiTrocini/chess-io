@@ -145,6 +145,11 @@ def test_template_summary_mentions_critical_blunder_and_advice():
     assert [c["ply"] for c in t["critical"]] == [4] and t["critical"][0]["mine"]
     assert "3. Bf4 (grave errore, mossa tua)" in t["critical"][0]["text"]
     assert any("senza difesa" in a and "3. Bf4, dove era meglio Be3" in a for a in t["advice"])
+    assert t["brief"].split("\n") == [
+        "Sconfitta per abbandono in 4 mosse · accuratezza 61% contro 90%.",
+        "Momento chiave: 3. Bf4 (grave errore).",
+        "Da ricordare: controlla i pezzi indifesi.",
+    ]
 
 
 def test_template_summary_clean_game():
@@ -155,6 +160,7 @@ def test_template_summary_clean_game():
     review["key_moments"], review["counts"] = [], {"white": {}, "black": {}}
     t = template_summary(summary_facts(game, moves, review))
     assert "equilibrio" in t["overview"] and t["critical"] == []
+    assert t["brief"].endswith("Partita in equilibrio, senza svolte nette.\nDa ricordare: continua così.")
     assert t["advice"] == ["Partita molto pulita, senza errori: continua a giocare così e prova ad alzare il livello degli avversari."]
 
 

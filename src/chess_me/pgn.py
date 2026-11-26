@@ -7,6 +7,8 @@ from dataclasses import dataclass, field
 import chess
 import chess.pgn
 
+from .i18n import tr
+
 MAX_GAMES = 100
 MAX_PGN_BYTES = 5_000_000
 
@@ -172,31 +174,31 @@ def _from_game(index: int, game: chess.pgn.Game) -> Candidate:
 
     variant = (h.get("Variant") or "standard").lower()
     if variant not in ("standard", "chess", "from position", "normal"):
-        c.error = f"variante non supportata ({h.get('Variant')})"
+        c.error = tr("variante non supportata ({variant})", variant=h.get("Variant"))
         return c
     board = game.board()
     if type(board) is not chess.Board or board.chess960:
-        c.error = "variante non supportata (Chess960 o simili)"
+        c.error = tr("variante non supportata (Chess960 o simili)")
         return c
     if game.errors:
-        c.error = f"PGN non valido: {game.errors[0]}"
+        c.error = tr("PGN non valido: {error}", error=game.errors[0])
         return c
     if board.fen() != chess.STARTING_FEN:
         if not board.is_valid():
-            c.error = "posizione iniziale (FEN) non valida"
+            c.error = tr("posizione iniziale (FEN) non valida")
             return c
         c.start_fen = board.fen()
     node = game
     while node.variations:
         node = node.variations[0]
         if not board.is_legal(node.move):
-            c.error = "mossa illegale nel PGN"
+            c.error = tr("mossa illegale nel PGN")
             return c
         clk = node.clock()
         c.moves.append(Move(node.move, int(round(clk * 1000)) if clk is not None else None))
         board.push(node.move)
     if not c.moves:
-        c.error = "la partita non contiene mosse"
+        c.error = tr("la partita non contiene mosse")
         return c
     if c.start_fen is None:
         from . import openings  # nome uniforme dal nostro database (Lichess chess-openings)
@@ -220,7 +222,7 @@ def _from_game(index: int, game: chess.pgn.Game) -> Candidate:
 
 def parse_many(text: str, limit: int = MAX_GAMES) -> list[Candidate]:
     if len(text.encode()) > MAX_PGN_BYTES:
-        raise ValueError("file troppo grande (massimo 5 MB)")
+        raise ValueError(tr("file troppo grande (massimo 5 MB)"))
     text = text.lstrip("﻿")
     stream = io.StringIO(text)
     out: list[Candidate] = []
@@ -238,6 +240,6 @@ def parse_one(text: str) -> Candidate:
     cands = parse_many(text, limit=1)
     if not cands:
         c = Candidate(index=0)
-        c.error = "PGN non valido"
+        c.error = tr("PGN non valido")
         return c
     return cands[0]

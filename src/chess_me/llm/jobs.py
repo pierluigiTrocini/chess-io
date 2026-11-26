@@ -2,9 +2,11 @@
 import asyncio
 from typing import Callable
 
+from ..i18n import tr
 from . import humanize as llm_humanize
 from . import server as llm_server
 from . import summarize as llm_summarize
+from ..explain.templates import mate_comment
 from ..session import Review
 
 MODEL_SIZE_GB = llm_server.MODEL_SIZE / 1e9
@@ -24,7 +26,7 @@ def download_state() -> dict:
 
 def eligible(rv: Review) -> list[dict]:
     return [m for m in rv.moves if m.get("classification") in llm_humanize.ELIGIBLE and m.get("comment")
-            and not m["comment"].endswith("Scacco matto!")]
+            and not m["comment"].endswith(mate_comment("").strip())]
 
 
 async def run(rv: Review, notify: Callable[[], None]) -> None:
@@ -42,7 +44,7 @@ async def run(rv: Review, notify: Callable[[], None]) -> None:
             try:
                 text, chk = await llm_humanize.humanize(m["comment"], m["classification"], m.get("motifs_json"))
             except Exception as e:  # noqa: BLE001
-                text, chk = None, {"passed": False, "reason": f"errore LLM: {e}"}
+                text, chk = None, {"passed": False, "reason": tr("errore LLM: {error}", error=e)}
             m["comment_llm"], m["llm_check_json"] = text, chk
             rv.llm_progress = (i + 1, len(todo) + 1)
             notify()

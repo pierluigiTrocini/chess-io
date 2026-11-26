@@ -9,7 +9,8 @@ import chess
 
 from . import pgn as pgn_parse, sources
 from .pgn import Candidate
-from .explain.summary import TERMINATION_IT, summary_from
+from .explain.summary import summary_from, termination_text
+from .i18n import tr
 
 JSON_FIELDS = ("best_pv_san", "best_pv_uci", "refutation_pv_san", "refutation_pv_uci", "motifs_json")
 
@@ -23,10 +24,20 @@ class Loaded:
     candidates: list[Candidate]
     color_hint: str | None = None
     origin: str = ""
+    username: str | None = None   # con -u: il colore si ricava dai nomi dei giocatori
 
     @property
     def valid(self) -> list[Candidate]:
         return [c for c in self.candidates if not c.error]
+
+    def color_for(self, c: Candidate) -> str | None:
+        if self.username:
+            u = self.username.lower()
+            if c.white.lower() == u:
+                return "white"
+            if c.black.lower() == u:
+                return "black"
+        return self.color_hint
 
 
 def read_pgn_arg(arg: str, stdin=None) -> tuple[str, str]:
@@ -42,17 +53,27 @@ def read_pgn_arg(arg: str, stdin=None) -> tuple[str, str]:
         try:
             return p.read_text(encoding="utf-8", errors="replace"), p.name
         except OSError as e:
-            raise InputError(f"impossibile leggere {arg}: {e.strerror}")
+            raise InputError(tr("impossibile leggere {path}: {error}", path=arg, error=e.strerror))
     looks_like_path = "\n" not in arg and "[" not in arg and " " not in arg.strip() and \
         (arg.lower().endswith(".pgn") or "/" in arg or "." not in arg)
     if looks_like_path:
-        raise InputError(f"file non trovato: {arg}")
-    return arg, "PGN incollato"
+        raise InputError(tr("file non trovato: {path}", path=arg))
+    return arg, tr("PGN incollato")
 
 
-async def load(link: str | None = None, pgn: str | None = None, stdin=None) -> Loaded:
-    hint = None
-    if link:
+async def load(link: str | None = None, pgn: str | None = None, stdin=None,
+               user: tuple[str, str] | None = None) -> Loaded:
+    hint = username = None
+    if user:
+        platform, username = user
+        try:
+            text = await sources.fetch_user_games(platform, username)
+        except sources.FetchError as e:
+            raise InputError(str(e))
+        if not text.strip():
+            raise InputError(tr("nessuna partita trovata per l'utente {user}", user=username))
+        origin = f"{'Lichess' if sources.normalize_platform(platform) == 'lichess' else 'chess.com'} · {username}"
+    elif link:
         try:
             text, hint = await sources.fetch_url(link)
         except sources.FetchError as e:
@@ -65,10 +86,10 @@ async def load(link: str | None = None, pgn: str | None = None, stdin=None) -> L
     except ValueError as e:
         raise InputError(str(e))
     if not cands:
-        raise InputError("nessuna partita valida nel PGN")
-    loaded = Loaded(cands, hint, origin)
+        raise InputError(tr("nessuna partita valida nel PGN"))
+    loaded = Loaded(cands, hint, origin, username)
     if not loaded.valid:
-        raise InputError(cands[0].error or "nessuna partita valida nel PGN")
+        raise InputError(cands[0].error or tr("nessuna partita valida nel PGN"))
     return loaded
 
 
@@ -76,10 +97,10 @@ def pick(loaded: Loaded, game_no: int | None) -> Candidate | None:
     """La partita da analizzare: --game N (1 = la prima del PGN), l'unica valida, oppure None (scelta nella TUI)."""
     if game_no is not None:
         if not 1 <= game_no <= len(loaded.candidates):
-            raise InputError(f"il PGN contiene {len(loaded.candidates)} partite: --game va da 1 a {len(loaded.candidates)}")
+            raise InputError(tr("il PGN contiene {n} partite: --game va da 1 a {n}", n=len(loaded.candidates)))
         c = loaded.candidates[game_no - 1]
         if c.error:
-            raise InputError(f"partita {game_no}: {c.error}")
+            raise InputError(tr("partita {n}: {error}", n=game_no, error=c.error))
         return c
     valid = loaded.valid
     return valid[0] if len(valid) == 1 else None
@@ -90,7 +111,7 @@ def game_dict(c: Candidate, color: str) -> dict:
     return {
         "player_color": color, "white_name": c.white, "black_name": c.black,
         "white_elo": c.white_elo, "black_elo": c.black_elo, "result": c.result,
-        "termination": c.termination, "termination_it": TERMINATION_IT.get(c.termination or ""),
+        "termination": c.termination, "termination_text": termination_text(c.termination),
         "time_control": c.time_control, "time_initial_s": c.time_initial_s, "time_increment_s": c.time_increment_s,
         "time_class": c.time_class, "eco": c.eco, "opening_name": c.opening, "start_fen": c.start_fen,
         "played_at": c.played_at, "source": c.source, "source_url": c.source_url,

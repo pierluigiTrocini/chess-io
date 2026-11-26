@@ -1,4 +1,5 @@
 """Schermata di revisione: scacchiera, barra, lista mosse, grafico e commento; navigazione come nel web."""
+import textwrap
 from dataclasses import dataclass
 
 import chess
@@ -11,12 +12,15 @@ from textual.screen import Screen
 from textual.widgets import Footer, Static
 
 from . import theme
+from ..i18n import tr
 from ..session import Review
-from .board import BoardView
+from .board import BoardView, fit_cell
 from .panels import CommentPanel, EvalBar, EvalGraph, GameHeader, MoveList
-from .screens import HelpScreen, SummaryScreen
+from .screens import HelpScreen, SummaryScreen, localize_bindings
 
 AUTOPLAY_S = 1.4
+SIDE_MIN = 44        # colonne lasciate a mosse e commento accanto alla scacchiera
+BOARD_CHROME = 8     # barra di valutazione (5 + 1 di margine) e padding della colonna
 
 
 @dataclass
@@ -31,12 +35,16 @@ class Variation:
 
 class ReviewScreen(Screen):
     DEFAULT_CSS = """
-    #top { height: auto; }
+    #top { height: 1fr; }
     #boardcol { width: auto; height: auto; padding: 0 1; }
-    #side { width: 1fr; height: auto; }
+    #boardrow { width: auto; height: auto; }
+    #brief { height: auto; margin-top: 1; }
+    #side { width: 1fr; height: 100%; padding-right: 1; }
     #movestitle { height: 1; color: #8a8a8a; }
     #llmstatus { height: 1; color: #8a8a8a; }
-    EvalGraph { margin: 0 1; }
+    #side MoveList { height: 1fr; min-height: 4; }
+    #side CommentPanel { max-height: 60%; }
+    EvalGraph { margin: 1 1 0 1; }
     """
     BINDINGS = [
         Binding("left", "step(-1)", "Mossa", key_display="←/→"),
@@ -59,6 +67,7 @@ class ReviewScreen(Screen):
 
     def __init__(self, rv: Review, origin: str = "", llm_enabled: bool = False):
         super().__init__()
+        localize_bindings(self)
         self.rv = rv
         self.origin = origin
         self.llm_enabled = llm_enabled
@@ -73,15 +82,17 @@ class ReviewScreen(Screen):
     def compose(self) -> ComposeResult:
         yield GameHeader(id="header")
         with Horizontal(id="top"):
-            with Horizontal(id="boardcol"):
-                yield EvalBar(id="evalbar")
-                yield BoardView(id="board")
+            with Vertical(id="boardcol"):
+                with Horizontal(id="boardrow"):
+                    yield EvalBar(id="evalbar")
+                    yield BoardView(id="board")
+                yield Static(id="brief")
             with Vertical(id="side"):
-                yield Static(Text("Mosse", Style(bold=True)), id="movestitle")
+                yield Static(Text(tr("Mosse"), Style(bold=True)), id="movestitle")
                 yield MoveList(id="moves")
                 yield Static(id="llmstatus")
+                yield CommentPanel(id="comment")
         yield EvalGraph(id="graph")
-        yield CommentPanel(id="comment")
         yield Footer()
 
     def on_mount(self) -> None:
@@ -91,13 +102,46 @@ class ReviewScreen(Screen):
         self.query_one(MoveList).set_review(self.rv)
         self.query_one(EvalGraph).set_data(self.rv)
         self.refresh_llm_status()
+        self.render_brief()
         self.render_state()
+
+    def brief_lines(self) -> list[str]:
+        return [l for l in ((self.rv.summary.get("text") or {}).get("brief") or "").split("\n") if l]
+
+    def render_brief(self) -> None:
+        """Il riassunto del riassunto sotto la scacchiera (s per quello completo)."""
+        t = Text()
+        lines = self.brief_lines()
+        if lines:
+            t.append(tr("In breve") + "\n", Style(bold=True, color=theme.MUTED))
+            t.append("\n".join(lines))
+        self.query_one("#brief", Static).update(t)
 
     def on_resize(self) -> None:
         self.render_state()
 
+    def fit_board(self) -> None:
+        """Case più grandi possibile nello spazio tra intestazione e grafico, lasciando posto alle mosse."""
+        w, h = self.app.size
+        header = self.query_one(GameHeader).outer_size.height or 2
+        graph = self.query_one(EvalGraph).outer_size.height or 5
+        avail_w, avail_h = w - SIDE_MIN - BOARD_CHROME, h - header - graph - 1
+        lines = self.brief_lines()
+        cell, brief = fit_cell(avail_w, avail_h), self.query_one("#brief", Static)
+        for _ in range(3):   # il riassunto va a capo in base alla larghezza della scacchiera, che dipende dallo spazio
+            width = 2 + 8 * cell[0] + BOARD_CHROME - 2
+            rows = 2 + sum(len(textwrap.wrap(l, width)) or 1 for l in lines) if lines else 0
+            new = fit_cell(avail_w, avail_h - rows)
+            if new == cell:
+                break
+            cell = new
+        brief.display = bool(lines) and 8 * cell[1] + 1 + rows <= avail_h
+        brief.styles.width = width
+        self.query_one(BoardView).set_cell(cell)
+
     # ---------- stato ----------
     def render_state(self) -> None:
+        self.fit_board()
         board = self.query_one(BoardView)
         rv = self.rv
         if self.variation:
@@ -119,7 +163,6 @@ class ReviewScreen(Screen):
             self.query_one(EvalBar).set_eval(m["eval_cp"] if m else 20, m["eval_mate"] if m else None,
                                              board.orientation == chess.WHITE, 8 * board.cell()[1])
         moves = self.query_one(MoveList)
-        moves.styles.height = max(4, 8 * board.cell()[1] + 1 - 1 - (1 if self.llm_enabled else 0))
         moves.set_index(self.idx)
         self.query_one(EvalGraph).set_cursor(self.idx)
         comment = self.query_one(CommentPanel)
@@ -135,14 +178,14 @@ class ReviewScreen(Screen):
         rv = self.rv
         st = self.query_one("#llmstatus", Static)
         if not self.llm_enabled:
-            st.update("")
+            st.display = False
             return
         done, total = rv.llm_progress
         text = {
-            "downloading": "⬇ Scarico il modello LLM (una volta sola)…",
-            "running": f"✍ LLM al lavoro {done}/{total}",
-            "done": f"✍ LLM: {'attivo' if self.use_llm else 'template'} (l per cambiare)",
-            "error": f"✍ LLM non disponibile: {rv.llm_error}",
+            "downloading": tr("⬇ Scarico il modello LLM (una volta sola)…"),
+            "running": tr("✍ LLM al lavoro {done}/{total}", done=done, total=total),
+            "done": tr("✍ LLM: {mode} (l per cambiare)", mode=tr("attivo") if self.use_llm else tr("template")),
+            "error": tr("✍ LLM non disponibile: {error}", error=rv.llm_error),
         }.get(rv.llm_status, "")
         if rv.llm_status == "downloading":
             from ..llm import jobs as llm_jobs
@@ -185,7 +228,7 @@ class ReviewScreen(Screen):
             if self.rv.moves[i].get("classification") in theme.SALIENT:
                 self.go(i)
                 return
-        self.notify("Nessun altro momento critico" + (" più avanti" if d > 0 else " prima"))
+        self.notify(tr("Nessun altro momento critico più avanti") if d > 0 else tr("Nessun altro momento critico prima"))
 
     def action_variation(self, kind: str) -> None:
         if self.idx < 0:
@@ -193,14 +236,14 @@ class ReviewScreen(Screen):
         m = self.rv.moves[self.idx]
         if kind == "best":
             if not m.get("best_pv_uci") or m.get("best_uci") == m["uci"]:
-                self.notify("Hai giocato la mossa migliore")
+                self.notify(tr("Hai giocato la mossa migliore"))
                 return
-            title, fen, ucis, start = f"Migliore: {m.get('best_san')}", m["fen_before"], m["best_pv_uci"], m["ply"]
+            title, fen, ucis, start = tr("Migliore: {move}", move=m.get("best_san")), m["fen_before"], m["best_pv_uci"], m["ply"]
         else:
             if m.get("classification") not in theme.ERRORS or not m.get("refutation_pv_uci"):
-                self.notify("Nessuna confutazione per questa mossa")
+                self.notify(tr("Nessuna confutazione per questa mossa"))
                 return
-            title, fen, ucis, start = "Confutazione", self.fens[self.idx + 1], m["refutation_pv_uci"], m["ply"] + 1
+            title, fen, ucis, start = tr("Confutazione"), self.fens[self.idx + 1], m["refutation_pv_uci"], m["ply"] + 1
         self.stop_play()
         b = chess.Board(fen)
         fens, ok, sans = [], [], []
@@ -228,7 +271,7 @@ class ReviewScreen(Screen):
 
     def action_toggle_llm(self) -> None:
         if not self.llm_enabled:
-            self.notify("Avvia con --llm per i commenti riscritti dall'LLM")
+            self.notify(tr("Avvia con --llm per i commenti riscritti dall'LLM"))
             return
         self.use_llm = not self.use_llm
         self.refresh_llm_status()
@@ -239,7 +282,9 @@ class ReviewScreen(Screen):
         self.rv.set_color(new)
         self.query_one(BoardView).orientation = chess.WHITE if new == "white" else chess.BLACK
         self.query_one(GameHeader).show(self.rv, self.origin)
-        self.notify(f"Ora sei il {'Bianco' if new == 'white' else 'Nero'}: riassunto ricalcolato")
+        self.render_brief()
+        self.notify(tr("Ora sei il Bianco: riassunto ricalcolato") if new == "white"
+                    else tr("Ora sei il Nero: riassunto ricalcolato"))
         self.render_state()
 
     def action_summary(self) -> None:

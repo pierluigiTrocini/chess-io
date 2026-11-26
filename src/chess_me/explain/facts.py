@@ -3,7 +3,8 @@ from dataclasses import dataclass, field, asdict
 
 import chess
 
-from ..review.material import PIECE_ARTICLE_IT, PIECE_NAMES_IT, balance, describe_points, value
+from ..i18n import piece_on, piece_the, tr
+from ..review.material import balance, describe_points, value
 from . import motifs
 
 
@@ -23,7 +24,7 @@ class Facts:
     loss: str | None = None            # materiale perso rispetto alla posizione attuale
     loss_points: int = 0
     missed_gain: str | None = None     # materiale che la mossa migliore avrebbe vinto in più
-    first_capture: str | None = None   # es. "l'alfiere in f4"
+    first_capture: str | None = None   # es. "l'alfiere in f4" (nella lingua dell'analisi)
     best_gain: str | None = None       # materiale vinto con la mossa migliore
     sacrificed: str | None = None
     threat_san: str | None = None
@@ -96,7 +97,7 @@ def _first_capture_by(board: chess.Board, moves: list[chess.Move], color: chess.
             if victim is None:  # en passant
                 victim = chess.PAWN
             san = b.san(mv)
-            return f"{PIECE_ARTICLE_IT[victim]} in {chess.square_name(sq)}", san, value(victim)
+            return piece_on(victim, sq), san, value(victim)
         b.push(mv)
     return None
 
@@ -168,9 +169,9 @@ def build_facts(
     if sacrificed_pts:
         pt = sacrificed_piece
         if pt == chess.ROOK and sacrificed_pts == 2:
-            f.sacrificed = "la qualità"
+            f.sacrificed = tr("la qualità")
         elif pt is not None and pt != chess.PAWN and sacrificed_pts >= 3:
-            f.sacrificed = PIECE_ARTICLE_IT[pt]
+            f.sacrificed = piece_the(pt)
         else:
             f.sacrificed = describe_points(sacrificed_pts)
 
@@ -213,4 +214,4 @@ def build_facts(
     return f
 
 
-__all__ = ["Facts", "build_facts", "fmt_eval", "PIECE_NAMES_IT"]
+__all__ = ["Facts", "build_facts", "fmt_eval"]

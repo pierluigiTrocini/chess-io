@@ -13,7 +13,7 @@ a = Analysis(
     [os.path.join(SPECPATH, "entry.py")],  # noqa: F821
     pathex=[SRC],
     # il database delle aperture va in share/ del bundle, non dentro il pacchetto
-    datas=[(os.path.join(DATA, f), os.path.join("chess_me", "data")) for f in ("prompts.toml", "binaries.toml")],
+    datas=[(os.path.join(DATA, f), os.path.join("chess_me", "data")) for f in ("prompts.toml", "prompts.en.toml", "prompts.es.toml", "binaries.toml")],
     hiddenimports=hidden,
     excludes=["tkinter", "pytest"],
     noarchive=False,

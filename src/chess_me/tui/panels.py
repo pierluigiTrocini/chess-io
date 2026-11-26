@@ -8,6 +8,7 @@ from textual.widget import Widget
 from textual.widgets import Static
 
 from . import theme
+from ..i18n import tr
 from ..session import Review
 
 BLOCKS = " ▁▂▃▄▅▆▇█"
@@ -50,31 +51,32 @@ class GameHeader(Static):
         me = g["player_color"]
         t = Text()
         for color, dot in (("white", "○"), ("black", "●")):
-            name = g[f"{color}_name"] or ("Bianco" if color == "white" else "Nero")
+            name = g[f"{color}_name"] or (tr("Bianco") if color == "white" else tr("Nero"))
             elo = g[f"{color}_elo"]
             st = Style(bold=True, color="#ffffff" if color == "white" else "#b0b0b0")
             t.append(f"{dot} {name}", st)
             if color == me:
-                t.append(" (tu)", Style(color=theme.ACCENT))
+                t.append(tr(" (tu)"), Style(color=theme.ACCENT))
             if elo:
                 t.append(f" {elo}", Style(color=theme.MUTED))
             if color == "white":
                 t.append("  vs  ", Style(color=theme.MUTED))
-        res = theme.result_text(g["result"], me)
-        t.append(f"   {res}", Style(bold=True, color=theme.GOOD if res == "Vittoria" else theme.BAD if res == "Sconfitta" else None))
-        t.append(f" · {g['result']}" + (f" · {g['termination_it']}" if g.get("termination_it") else ""), Style(color=theme.MUTED))
+        code = theme.result_code(g["result"], me)
+        t.append(f"   {theme.result_text(g['result'], me)}",
+                 Style(bold=True, color=theme.GOOD if code == "win" else theme.BAD if code == "loss" else None))
+        t.append(f" · {g['result']}" + (f" · {g['termination_text']}" if g.get("termination_text") else ""), Style(color=theme.MUTED))
         if g.get("opening_name"):
             t.append(f"   {g.get('eco') or ''} {g['opening_name']}".rstrip(), Style(color=theme.MUTED))
-        tc = theme.TIME_CLASS_IT.get(g.get("time_class") or "")
+        tc = theme.time_class_text(g.get("time_class"))
         if tc:
             t.append(f" · {tc}" + (f" {g['time_control']}" if g.get("time_control") else ""), Style(color=theme.MUTED))
-        t.append("\nAccuratezza  ", Style(color=theme.MUTED))
-        for color, label in (("white", "Bianco"), ("black", "Nero")):
+        t.append("\n" + tr("Accuratezza") + "  ", Style(color=theme.MUTED))
+        for color, label in (("white", tr("Bianco")), ("black", tr("Nero"))):
             acc, est = s.get(f"accuracy_{color}"), s.get(f"rating_est_{color}")
             t.append(f"{label} ", Style(color=theme.MUTED))
             t.append(f"{acc:.1f}" if acc is not None else "–", Style(bold=True))
             t.append(f" (~{est})   " if est else "   ", Style(color=theme.MUTED))
-        t.append(f"{s.get('engine_version') or ''} · profondità {s.get('depth')}", Style(color=theme.MUTED))
+        t.append(f"{s.get('engine_version') or ''} · " + tr("profondità {depth}", depth=s.get("depth")), Style(color=theme.MUTED))
         if origin:
             t.append(f" · {origin}", Style(color=theme.MUTED))
         self.update(t)
@@ -110,7 +112,10 @@ class EvalBar(Widget):
             fill = max(0, min(8, bottom_share - from_bottom * 8))
             bot, top = (theme.BAR_WHITE, theme.BAR_BLACK) if self.white_bottom else (theme.BAR_BLACK, theme.BAR_WHITE)
             t.append(" ")
-            t.append(BLOCKS[fill] * 3, Style(color=bot, bgcolor=top))
+            if fill == 8:   # sfondo invece di █: niente righe tra una linea e l'altra
+                t.append("   ", Style(bgcolor=bot))
+            else:
+                t.append(BLOCKS[fill] * 3, Style(color=bot, bgcolor=top))
             t.append(" \n")
         txt = theme.fmt_eval(self.cp, self.mate)
         t.append(txt.center(5)[:5], Style(bold=True, color=theme.MUTED))
@@ -119,7 +124,7 @@ class EvalBar(Widget):
 
 class EvalGraph(Widget):
     """Andamento della partita (Win% del Bianco), cursore sulla mossa corrente e pallini sui momenti salienti."""
-    DEFAULT_CSS = "EvalGraph { height: 6; }"
+    DEFAULT_CSS = "EvalGraph { height: 4; }"
 
     class Jump(Message):
         def __init__(self, index: int) -> None:
@@ -163,11 +168,15 @@ class EvalGraph(Widget):
             from_bottom = rows - 1 - r
             for x in range(width):
                 fill = max(0, min(8, heights[x] - from_bottom * 8))
-                bg = theme.ACCENT if x == cur_col else theme.BAR_BLACK
-                if fill == 0 and from_bottom * 8 <= mid < (from_bottom + 1) * 8 and x != cur_col:
-                    t.append("─", Style(color="#6a6a6a", bgcolor=bg))
+                on_cursor = x == cur_col
+                bg = theme.ACCENT if on_cursor else theme.GRAPH_BLACK
+                fg = theme.ACCENT_LIGHT if on_cursor else theme.GRAPH_WHITE
+                if fill == 8:   # casella piena: sfondo, non █, così non restano righe tra una linea e l'altra
+                    t.append(" ", Style(bgcolor=fg))
+                elif fill == 0 and from_bottom * 8 <= mid < (from_bottom + 1) * 8 and not on_cursor:
+                    t.append("─", Style(color=theme.GRAPH_MID, bgcolor=bg))
                 else:
-                    t.append(BLOCKS[fill], Style(color=theme.BAR_WHITE, bgcolor=bg))
+                    t.append(BLOCKS[fill], Style(color=fg, bgcolor=bg))
             t.append("\n")
         marks = [" "] * width
         styles: list[Style] = [Style()] * width
@@ -256,16 +265,16 @@ class MoveList(VerticalScroll):
 
 
 class CommentPanel(Static):
-    DEFAULT_CSS = "CommentPanel { height: auto; min-height: 5; padding: 0 1; border-top: solid #3a3d44; }"
+    DEFAULT_CSS = "CommentPanel { height: auto; min-height: 5; padding: 0 1; margin-top: 1; border-top: solid #3a3d44; }"
 
     def show_start(self) -> None:
-        self.update(Text("Posizione iniziale. Usa ← → per scorrere le mosse, n per il prossimo momento critico.",
+        self.update(Text(tr("Posizione iniziale. Usa ← → per scorrere le mosse, n per il prossimo momento critico."),
                          Style(color=theme.MUTED)))
 
     def show_variation(self, rv: Review, title: str, sans: list[str], start_ply: int, i: int) -> None:
         t = Text()
         t.append(title, Style(bold=True))
-        t.append("   ← → per scorrere · Esc per tornare alla partita\n", Style(color=theme.MUTED))
+        t.append("   " + tr("← → per scorrere · Esc per tornare alla partita") + "\n", Style(color=theme.MUTED))
         t.append_text(format_line(rv, sans, start_ply, current=i, limit=len(sans)))
         self.update(t)
 
@@ -275,7 +284,7 @@ class CommentPanel(Static):
         meta = theme.CLASS_META.get(cls or "")
         t = Text()
         if paused:
-            t.append("⏸ Momento saliente: premi spazio per continuare\n", Style(color=theme.ACCENT))
+            t.append(tr("⏸ Momento saliente: premi spazio per continuare") + "\n", Style(color=theme.ACCENT))
         if meta:
             t.append(f" {meta.sym} ", Style(color="#ffffff", bgcolor=meta.color, bold=True))
             t.append(f" {meta.label}", Style(color=meta.color, bold=True))
@@ -283,9 +292,9 @@ class CommentPanel(Static):
         t.append(rv.label(i), Style(bold=True))
         before = (m.get("best_eval_cp"), m.get("best_eval_mate"))
         after = (m.get("eval_cp"), m.get("eval_mate"))
-        t.append("    prima ", Style(color=theme.MUTED))
+        t.append("    " + tr("prima") + " ", Style(color=theme.MUTED))
         t.append(theme.fmt_eval(*before) or "–", eval_style(rv, *before))
-        t.append(" → dopo ", Style(color=theme.MUTED))
+        t.append(" → " + tr("dopo") + " ", Style(color=theme.MUTED))
         t.append(theme.fmt_eval(*after) or "–", eval_style(rv, *after))
         t.append("\n")
         text = m.get("comment") or ""
@@ -294,24 +303,25 @@ class CommentPanel(Static):
             if m.get("comment_llm"):
                 text = m["comment_llm"]
                 t.append(text + "\n")
-                t.append("✍ testo LLM verificato\n", Style(color=theme.MUTED, italic=True))
+                t.append(tr("✍ testo LLM verificato") + "\n", Style(color=theme.MUTED, italic=True))
             else:
                 t.append(text + "\n")
-                t.append(f"✍ testo LLM scartato ({chk.get('reason') or 'controllo non superato'}): template\n",
+                t.append(tr("✍ testo LLM scartato ({reason}): template",
+                            reason=chk.get("reason") or tr("controllo non superato")) + "\n",
                          Style(color=theme.MUTED, italic=True))
         else:
             t.append(text + "\n")
         is_err = cls in theme.ERRORS
         if m.get("best_san") and m.get("best_uci") != m["uci"] and cls != "book" and m.get("best_pv_san"):
-            t.append("Migliore      ", Style(color=theme.GOOD, bold=True))
+            t.append(f"{tr('Migliore'):<14}", Style(color=theme.GOOD, bold=True))
             t.append_text(format_line(rv, m["best_pv_san"], m["ply"]))
-            t.append("  [b] esplora\n", Style(color=theme.MUTED))
+            t.append("  " + tr("[b] esplora") + "\n", Style(color=theme.MUTED))
         if is_err and m.get("refutation_pv_san"):
-            t.append("Confutazione  ", Style(color=theme.BAD, bold=True))
+            t.append(f"{tr('Confutazione'):<14}", Style(color=theme.BAD, bold=True))
             t.append_text(format_line(rv, m["refutation_pv_san"], m["ply"] + 1))
-            t.append("  [r] esplora\n", Style(color=theme.MUTED))
+            t.append("  " + tr("[r] esplora") + "\n", Style(color=theme.MUTED))
         if m.get("threat_san"):
-            t.append("Minaccia      ", Style(color=theme.CLASS_META["mistake"].color, bold=True))
+            t.append(f"{tr('Minaccia'):<14}", Style(color=theme.CLASS_META["mistake"].color, bold=True))
             t.append(m["threat_san"] + "\n")
         t.rstrip()
         self.update(t)

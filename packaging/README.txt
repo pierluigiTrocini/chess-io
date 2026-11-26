@@ -3,7 +3,7 @@ chess-me — revisione delle partite a scacchi nel terminale
 
 Installazione:   ./install.sh            (in ~/.local/share/chess-me/app, comando in ~/.local/bin)
 Disinstallazione: ./install.sh --uninstall [--purge]
-Con il modello LLM: ./install.sh --llm
+Con il modello LLM: ./install.sh --llm   (oppure scegli i componenti dal menu di ./install.sh)
 Senza installare: ./chess-me -l <link>
 
 Uso:
@@ -12,6 +12,10 @@ Uso:
   pbpaste | chess-me -pgn -
   chess-me -pgn partita.pgn --color black --depth 18 --llm
   chess-me doctor        controlla Stockfish, aperture, llama-server, modello
+  chess-me lang en       lingua predefinita: it (italiano), en (English), es (español)
+  chess-me --lang es …   un'altra lingua solo per questa volta
+
+Lingua / Language / Idioma: ./install.sh --lang en  ·  chess-me lang es
 
 La cartella contiene tutto: Python e librerie (_internal/), Stockfish e llama-server (bin/), il database
 delle aperture (share/). Il modello LLM (~1,1 GB) si scarica solo al primo --llm, in

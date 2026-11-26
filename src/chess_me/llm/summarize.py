@@ -5,6 +5,7 @@ Ogni blocco del riassunto a template (com'è andata, ogni momento critico, consi
 chiamata separata e passa lo stesso controllo dei commenti alle mosse (`humanize.check`): mosse, pezzi e
 concetti devono comparire già nel testo a template. Se un blocco non passa, per quel blocco resta il template.
 """
+from ..i18n import tr
 from . import prompts, server
 from ..explain.describe import annotate
 from .humanize import _clean, check
@@ -40,7 +41,7 @@ async def summarize(tpl: dict, progress=None) -> tuple[dict, dict]:
         try:
             text, chk = await rewrite(kind, template, cls)
         except Exception as e:  # noqa: BLE001
-            text, chk = None, {"passed": False, "reason": f"errore LLM: {e}", "extracted": [], "pieces": [],
+            text, chk = None, {"passed": False, "reason": tr("errore LLM: {error}", error=e), "extracted": [], "pieces": [],
                                "regex": "", "allowed": []}
         if idx is None:
             out[kind], checks[kind] = text, chk

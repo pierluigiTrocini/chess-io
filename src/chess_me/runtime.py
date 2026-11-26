@@ -15,7 +15,10 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
+from .i18n import tr
+
 MODEL_FILE = "Qwen3-1.7B-Q4_K_M.gguf"
+PROMPT_FILES = ("prompts.toml", "prompts.en.toml", "prompts.es.toml")   # it, en, es
 _EXE = ".exe" if os.name == "nt" else ""
 
 
@@ -25,6 +28,57 @@ def data_home() -> Path:
         return Path(os.environ["CHESSME_HOME"]).expanduser()
     base = os.environ.get("XDG_DATA_HOME") or str(Path.home() / ".local" / "share")
     return Path(base).expanduser() / "chess-me"
+
+
+LAST_SEARCH_FILE = "last_search.json"
+
+
+def load_last_search() -> tuple[str, str] | None:
+    """Ultima ricerca per utente andata a buon fine (piattaforma, nome), se salvata."""
+    import json
+    try:
+        d = json.loads((data_home() / LAST_SEARCH_FILE).read_text())
+        return str(d["platform"]), str(d["username"])
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+
+
+def save_last_search(platform: str, username: str) -> None:
+    """Ricorda l'ultima ricerca; un errore di scrittura non deve mai bloccare la TUI."""
+    import json
+    try:
+        home = data_home()
+        home.mkdir(parents=True, exist_ok=True)
+        (home / LAST_SEARCH_FILE).write_text(json.dumps({"platform": platform, "username": username}))
+    except OSError:
+        pass
+
+
+SETTINGS_FILE = "settings.json"
+
+
+def load_settings() -> dict:
+    """Impostazioni salvate (per ora solo la lingua): {} se mancano o sono illeggibili."""
+    import json
+    try:
+        d = json.loads((data_home() / SETTINGS_FILE).read_text())
+        return d if isinstance(d, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def save_settings(**values) -> bool:
+    """Aggiorna le impostazioni salvate; False se non si riesce a scrivere (la TUI va avanti comunque)."""
+    import json
+    try:
+        home = data_home()
+        home.mkdir(parents=True, exist_ok=True)
+        d = load_settings()
+        d.update(values)
+        (home / SETTINGS_FILE).write_text(json.dumps(d, ensure_ascii=False))
+        return True
+    except OSError:
+        return False
 
 
 def bundle_root() -> Path | None:
@@ -44,7 +98,7 @@ class Resources:
     llama_server: Path | None
     openings: Path | None
     model: Path
-    prompts: Path | None
+    prompts: list[Path]          # prompt personalizzati (prompts.toml, prompts.en.toml, prompts.es.toml)
     bundle: Path | None
     home: Path
 
@@ -52,14 +106,14 @@ class Resources:
         def show(p: Path | None, missing: str) -> tuple[str, bool]:
             return (str(p), True) if p else (missing, False)
         return [
-            ("Stockfish", *show(self.stockfish, "non trovato (chess-me setup)")),
-            ("Aperture", *show(self.openings, "non trovate: niente riconoscimento della teoria")),
-            ("llama-server", *show(self.llama_server, "non trovato: --llm non disponibile")),
-            ("Modello LLM", str(self.model) if self.model.is_file() else f"{self.model} (si scarica al primo --llm)",
-             self.model.is_file()),
-            ("Prompt", str(self.prompts) if self.prompts else "predefiniti", True),
-            ("Bundle", str(self.bundle) if self.bundle else "no (Python)", True),
-            ("Dati utente", str(self.home), True),
+            ("Stockfish", *show(self.stockfish, tr("non trovato (chess-me setup)"))),
+            (tr("Aperture"), *show(self.openings, tr("non trovate: niente riconoscimento della teoria"))),
+            ("llama-server", *show(self.llama_server, tr("non trovato: --llm non disponibile"))),
+            (tr("Modello LLM"), str(self.model) if self.model.is_file()
+             else tr("{path} (si scarica al primo --llm)", path=self.model), self.model.is_file()),
+            (tr("Prompt"), ", ".join(str(p) for p in self.prompts) if self.prompts else tr("predefiniti"), True),
+            ("Bundle", str(self.bundle) if self.bundle else tr("no (Python)"), True),
+            (tr("Dati utente"), str(self.home), True),
         ]
 
 
@@ -100,7 +154,7 @@ def resolve() -> Resources:
                            b("share", "openings.sqlite"), pkg / "openings.sqlite", home / "openings.sqlite",
                            Path("openings.sqlite"))
     model = Path(os.environ["LLM_MODEL_PATH"]) if os.environ.get("LLM_MODEL_PATH") else home / "models" / MODEL_FILE
-    prompts = _first_file(home / "prompts.toml")
+    prompts = [p for p in (home / name for name in PROMPT_FILES) if p.is_file()]
     return Resources(stockfish, llama, openings, model, prompts, bundle, home)
 
 
@@ -115,8 +169,8 @@ def bootstrap(depth: int | None = None) -> Resources:
     res = resolve()
     tmp = Path(tempfile.mkdtemp(prefix="chess-me-"))
     atexit.register(shutil.rmtree, tmp, True)
-    if res.prompts:
-        shutil.copyfile(res.prompts, tmp / "prompts.toml")  # llm.prompts legge DATA_DIR/prompts.toml
+    for p in res.prompts:
+        shutil.copyfile(p, tmp / p.name)  # llm.prompts legge DATA_DIR/prompts*.toml
     env = {
         "DATA_DIR": str(tmp),
         "STOCKFISH_PATH": str(res.stockfish or "stockfish"),

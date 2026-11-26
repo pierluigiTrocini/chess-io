@@ -13,7 +13,7 @@ from . import params as cfg
 from .accuracy import estimated_rating, game_accuracy
 from .classify import CLASSES, MoveEval, classify, phase_of
 from ..explain.facts import build_facts, fmt_eval
-from ..explain.templates import render
+from ..explain.templates import mate_comment, render
 from .winprob import expected_points, move_accuracy, win_percent
 
 log = logging.getLogger(__name__)
@@ -195,7 +195,7 @@ async def analyse_game(game_id: int, uci_moves: list[str], depth: int,
             ep_after=me.ep_after,
         )
         if pa.terminal == "checkmate":
-            comment = f"{facts.san} Scacco matto!"
+            comment = mate_comment(facts.san)
         else:
             comment = render(facts)
 

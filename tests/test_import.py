@@ -189,3 +189,43 @@ def test_fetch_errors_are_italian():
             await sources.fetch_lichess_game("AbCdEfGh", c)
     with pytest.raises(sources.FetchError, match="troppe richieste"):
         asyncio.run(run())
+
+
+def test_fetch_lichess_user_games():
+    def handler(req: httpx.Request):
+        assert req.url.path == "/api/games/user/alice_l" and req.url.params["max"] == "50"
+        assert "chess960" not in req.url.params["perfType"]
+        return httpx.Response(200, text=LICHESS_PGN)
+
+    async def run():
+        async with _mock(handler) as c:
+            return await sources.fetch_user_games("Lichess", "alice_l", client=c)
+    assert "alice_l" in asyncio.run(run())
+
+
+def test_fetch_chesscom_user_games_newest_first_and_standard_only():
+    base = "https://api.chess.com/pub/player/carol_c/games"
+
+    def handler(req: httpx.Request):
+        if req.url.path.endswith("/archives"):
+            return httpx.Response(200, json={"archives": [f"{base}/2025/01", f"{base}/2025/02"]})
+        if req.url.path.endswith("/2025/02"):
+            return httpx.Response(200, json={"games": [
+                {"end_time": 1, "rules": "chess", "pgn": "VECCHIA"},
+                {"end_time": 2, "rules": "chess960", "pgn": "960"},
+                {"end_time": 3, "rules": "chess", "pgn": "NUOVA"}]})
+        return httpx.Response(200, json={"games": [{"end_time": 0, "rules": "chess", "pgn": "GENNAIO"}]})
+
+    async def run(n):
+        async with _mock(handler) as c:
+            return await sources.fetch_user_games("chess.com", "Carol_C", n, client=c)
+    assert asyncio.run(run(2)) == "NUOVA\n\nVECCHIA"
+    assert asyncio.run(run(5)).endswith("GENNAIO") and "960" not in asyncio.run(run(5))
+
+
+def test_user_args_are_validated():
+    with pytest.raises(sources.FetchError, match="piattaforma"):
+        sources.normalize_platform("fics")
+    with pytest.raises(sources.FetchError, match="nome utente"):
+        sources.check_username("../etc")
+    assert sources.normalize_platform("Chess.com") == "chesscom"

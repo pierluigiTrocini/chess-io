@@ -1,15 +1,7 @@
 import chess
 
+from ..i18n import piece_a, tr
 from .params import PIECE_VALUES
-
-PIECE_NAMES_IT = {
-    chess.PAWN: "pedone", chess.KNIGHT: "cavallo", chess.BISHOP: "alfiere",
-    chess.ROOK: "torre", chess.QUEEN: "donna", chess.KING: "re",
-}
-PIECE_ARTICLE_IT = {
-    chess.PAWN: "il pedone", chess.KNIGHT: "il cavallo", chess.BISHOP: "l'alfiere",
-    chess.ROOK: "la torre", chess.QUEEN: "la donna", chess.KING: "il re",
-}
 
 
 def value(piece_type: int) -> int:
@@ -29,7 +21,7 @@ def counts(board: chess.Board, color: chess.Color) -> dict[int, int]:
 
 
 def describe_loss(before: chess.Board, after: chess.Board, color: chess.Color) -> str | None:
-    """Descrive in italiano il materiale netto perso da `color` passando da before ad after."""
+    """Descrive (nella lingua corrente) il materiale netto perso da `color` passando da before ad after."""
     lost = {pt: counts(before, color)[pt] - counts(after, color)[pt] for pt in range(1, 6)}
     won = {pt: counts(before, not color)[pt] - counts(after, not color)[pt] for pt in range(1, 6)}
     # le promozioni aumentano i pezzi: ignorate per la descrizione
@@ -43,18 +35,16 @@ def describe_points(net: int, lost: dict[int, int] | None = None, won: dict[int,
     lost = lost or {}
     won = won or {}
     if lost.get(chess.QUEEN, 0) > won.get(chess.QUEEN, 0):
-        return "la donna"
+        return tr("la donna")
     if lost.get(chess.ROOK, 0) > won.get(chess.ROOK, 0) and net == 2:
-        return "la qualità"
+        return tr("la qualità")
     if net == 1:
-        return "un pedone"
+        return piece_a(chess.PAWN)
     if net == 2:
-        return "due pedoni"
+        return tr("due pedoni")
     if net in (3, 4):
         minor = [pt for pt in (chess.KNIGHT, chess.BISHOP) if lost.get(pt, 0) > won.get(pt, 0)]
-        return f"un {PIECE_NAMES_IT[minor[0]]}" if len(minor) == 1 else "un pezzo"
+        return piece_a(minor[0]) if len(minor) == 1 else tr("un pezzo")
     if net in (5, 6):
-        return "una torre"
-    if net >= 9:
-        return "molto materiale"
-    return "molto materiale"
+        return piece_a(chess.ROOK)
+    return tr("molto materiale")

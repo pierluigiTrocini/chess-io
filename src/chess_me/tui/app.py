@@ -1,14 +1,15 @@
-"""App Textual: (scelta partita) → (colore) → analisi con barra di avanzamento → revisione."""
+"""App Textual: (ricerca utente) → (scelta partita) → (colore) → analisi con barra di avanzamento → revisione."""
 import asyncio
 
 from textual.app import App
 from textual.binding import Binding
 
-from .. import session
+from .. import runtime, session
+from ..i18n import tr
 from ..llm import jobs as llm_jobs
 from ..session import Loaded, Review
 from .review import ReviewScreen
-from .screens import AnalysisScreen, ColorScreen, ConfirmScreen, PickScreen
+from .screens import AnalysisScreen, ColorScreen, ConfirmScreen, PickScreen, SearchScreen
 
 
 class ChessMeApp(App):
@@ -17,7 +18,7 @@ class ChessMeApp(App):
     ENABLE_COMMAND_PALETTE = False
     BINDINGS = [Binding("ctrl+c", "quit", "Esci", show=False, priority=True)]
 
-    def __init__(self, loaded: Loaded, candidate, color: str | None, depth: int, llm: bool,
+    def __init__(self, loaded: Loaded | None, candidate, color: str | None, depth: int, llm: bool,
                  review: Review | None = None):
         super().__init__()
         self.loaded = loaded
@@ -29,28 +30,47 @@ class ChessMeApp(App):
         self._color_ready = asyncio.Event()
         self.review_screen: ReviewScreen | None = None
         self.exit_code = 0
+        self.search_screen: SearchScreen | None = SearchScreen() if loaded is None else None
 
     def on_mount(self) -> None:
-        if self.review is not None:
+        if self.search_screen is not None:
+            self.push_screen(self.search_screen)
+        elif self.review is not None:
             self.show_review()
         elif self.candidate is None:
-            self.push_screen(PickScreen(self.loaded.candidates), self._picked)
+            self.push_screen(PickScreen(self.loaded.candidates, self.loaded.username), self._picked)
         else:
             self.start()
 
+    def on_search_screen_submitted(self, msg: SearchScreen.Submitted) -> None:
+        self.run_worker(self._search(msg.platform, msg.username), exclusive=True, group="search")
+
+    async def _search(self, platform: str, username: str) -> None:
+        try:
+            self.loaded = await session.load(user=(platform, username))
+        except session.InputError as e:
+            self.search_screen.error(str(e))
+            return
+        runtime.save_last_search(platform, username)
+        self.push_screen(PickScreen(self.loaded.candidates, self.loaded.username), self._picked)
+
     def _picked(self, index: int | None) -> None:
         if index is None:
-            self.exit()
+            if self.search_screen is not None:   # si torna alla ricerca
+                self.search_screen.ready()
+            else:
+                self.exit()
             return
         self.candidate = self.loaded.candidates[index]
         self.start()
 
     def start(self) -> None:
         c = self.candidate
-        self.color = self.color or self.loaded.color_hint
+        self.color = self.color or self.loaded.color_for(c)
         title = f"chess-me · {c.white}{f' ({c.white_elo})' if c.white_elo else ''} vs " \
                 f"{c.black}{f' ({c.black_elo})' if c.black_elo else ''}"
-        self.analysis_screen = AnalysisScreen(title, f"{self.loaded.origin} · {c.plies} semimosse · profondità {self.depth}")
+        self.analysis_screen = AnalysisScreen(title, f"{self.loaded.origin} · " + tr("{n} semimosse", n=c.plies) + " · "
+                                              + tr("profondità {depth}", depth=self.depth))
         self.push_screen(self.analysis_screen)
         if self.color:
             self._color_ready.set()
@@ -85,7 +105,7 @@ class ChessMeApp(App):
     def start_llm(self) -> None:
         rv = self.review
         if not llm_jobs.available():
-            rv.llm_status, rv.llm_error = "error", "llama-server non trovato (vedi chess-me doctor)"
+            rv.llm_status, rv.llm_error = "error", tr("llama-server non trovato (vedi chess-me doctor)")
             self.review_screen.refresh_llm_status()
             return
         if llm_jobs.model_ready():
@@ -96,11 +116,11 @@ class ChessMeApp(App):
             if ok:
                 self._run_llm()
             else:
-                rv.llm_status, rv.llm_error = "error", "modello non scaricato"
+                rv.llm_status, rv.llm_error = "error", tr("modello non scaricato")
                 self.review_screen.refresh_llm_status()
-        self.push_screen(ConfirmScreen(
-            f"Per i commenti LLM serve il modello Qwen3 1.7B ({llm_jobs.MODEL_SIZE_GB:.1f} GB), "
-            "da scaricare una volta sola da Hugging Face. Scaricarlo ora?"), answer)
+        self.push_screen(ConfirmScreen(tr(
+            "Per i commenti LLM serve il modello Qwen3 1.7B ({size:.1f} GB), da scaricare una volta sola da Hugging Face. "
+            "Scaricarlo ora?", size=llm_jobs.MODEL_SIZE_GB)), answer)
 
     def _run_llm(self) -> None:
         screen = self.review_screen

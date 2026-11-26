@@ -13,6 +13,7 @@ from pathlib import Path
 import httpx
 
 from . import runtime
+from .i18n import tr
 
 MANIFEST = Path(__file__).with_name("data") / "binaries.toml"
 
@@ -57,10 +58,10 @@ def download(url: str, dest: Path, sha256: str | None, label: str, echo=print) -
                         last = pct
     except httpx.HTTPError as e:
         part.unlink(missing_ok=True)
-        raise SetupError(f"{label}: download non riuscito ({e})")
+        raise SetupError(tr("{label}: download non riuscito ({error})", label=label, error=e))
     if sha256 and h.hexdigest() != sha256:
         part.unlink(missing_ok=True)
-        raise SetupError(f"{label}: SHA256 diverso da quello atteso, file scartato")
+        raise SetupError(tr("{label}: SHA256 diverso da quello atteso, file scartato", label=label))
     part.replace(dest)
     return dest
 
@@ -81,7 +82,7 @@ def _find(root: Path, name: str) -> Path | None:
 def install_stockfish(echo=print) -> Path:
     e = entry("stockfish")
     if e is None:
-        raise SetupError(f"nessun Stockfish precompilato per {platform_key()}: installalo e mettilo nel PATH")
+        raise SetupError(tr("nessun Stockfish precompilato per {platform}: installalo e mettilo nel PATH", platform=platform_key()))
     home = runtime.data_home()
     (home / "bin").mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="chess-me-dl-") as tmp:
@@ -90,7 +91,7 @@ def install_stockfish(echo=print) -> Path:
         _extract(arc, tmp / "x")
         src = _find(tmp / "x", e["member"])
         if src is None:
-            raise SetupError("Stockfish: eseguibile non trovato nell'archivio")
+            raise SetupError(tr("Stockfish: eseguibile non trovato nell'archivio"))
         dest = home / "bin" / "stockfish"
         shutil.copyfile(src, dest)
         _make_executable(dest)
@@ -100,7 +101,7 @@ def install_stockfish(echo=print) -> Path:
 def install_llama(echo=print) -> Path:
     e = entry("llama")
     if e is None:
-        raise SetupError(f"nessun llama-server precompilato per {platform_key()}: installalo e mettilo nel PATH")
+        raise SetupError(tr("nessun llama-server precompilato per {platform}: installalo e mettilo nel PATH", platform=platform_key()))
     home = runtime.data_home()
     with tempfile.TemporaryDirectory(prefix="chess-me-dl-") as tmp:
         tmp = Path(tmp)
@@ -108,7 +109,7 @@ def install_llama(echo=print) -> Path:
         _extract(arc, tmp / "x")
         src = _find(tmp / "x", e["member"])
         if src is None:
-            raise SetupError("llama-server: eseguibile non trovato nell'archivio")
+            raise SetupError(tr("llama-server: eseguibile non trovato nell'archivio"))
         dest_dir = home / "bin" / "llama"
         shutil.rmtree(dest_dir, ignore_errors=True)
         shutil.copytree(src.parent, dest_dir, symlinks=True)   # llama-server + librerie accanto
@@ -121,7 +122,7 @@ def install_openings(echo=print) -> Path:
     from .build_openings import download_and_build
     home = runtime.data_home()
     home.mkdir(parents=True, exist_ok=True)
-    echo("  aperture: scarico i TSV e costruisco il database…")
+    echo(tr("  aperture: scarico i TSV e costruisco il database…"))
     download_and_build(str(home / "openings.sqlite"))
     return home / "openings.sqlite"
 
