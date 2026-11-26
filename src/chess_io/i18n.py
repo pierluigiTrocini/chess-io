@@ -8,7 +8,6 @@ La lingua si sceglie, in ordine: `--lang` → variabile CHESSIO_LANG → imposta
 (`chess-io lang`, installer, schermata di ricerca) → italiano. Va scelta prima dell'analisi: commenti e
 riassunto si scrivono nella lingua corrente al momento dell'analisi.
 """
-import os
 
 import chess
 
@@ -52,8 +51,9 @@ def save(code: str) -> bool:
 
 
 def resolve(cli: str | None = None) -> str:
-    """Lingua da usare: opzione della CLI, CHESSIO_LANG, impostazione salvata, italiano."""
-    return normalize(cli) or normalize(os.environ.get("CHESSIO_LANG")) or saved() or DEFAULT
+    """Lingua da usare: opzione della CLI, CHESSIO_LANG (o CHESSME_LANG), impostazione salvata, italiano."""
+    from . import runtime
+    return normalize(cli) or normalize(runtime.env("LANG")) or saved() or DEFAULT
 
 
 def _catalog(code: str) -> dict[str, str]:

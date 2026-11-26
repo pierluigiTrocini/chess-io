@@ -4,7 +4,7 @@ import asyncio
 from textual.app import App
 from textual.binding import Binding
 
-from .. import runtime, session
+from .. import APP_NAME, runtime, session
 from ..i18n import tr
 from ..llm import jobs as llm_jobs
 from ..session import Loaded, Review
@@ -13,7 +13,7 @@ from .screens import AnalysisScreen, ColorScreen, ConfirmScreen, PickScreen, Sea
 
 
 class ChessIoApp(App):
-    TITLE = "chess-io"
+    TITLE = APP_NAME
     CSS = "Screen { background: #1e1f22; }"
     ENABLE_COMMAND_PALETTE = False
     BINDINGS = [Binding("ctrl+c", "quit", "Esci", show=False, priority=True)]
@@ -67,7 +67,7 @@ class ChessIoApp(App):
     def start(self) -> None:
         c = self.candidate
         self.color = self.color or self.loaded.color_for(c)
-        title = f"chess-io · {c.white}{f' ({c.white_elo})' if c.white_elo else ''} vs " \
+        title = f"{APP_NAME} · {c.white}{f' ({c.white_elo})' if c.white_elo else ''} vs " \
                 f"{c.black}{f' ({c.black_elo})' if c.black_elo else ''}"
         self.analysis_screen = AnalysisScreen(title, f"{self.loaded.origin} · " + tr("{n} semimosse", n=c.plies) + " · "
                                               + tr("profondità {depth}", depth=self.depth))

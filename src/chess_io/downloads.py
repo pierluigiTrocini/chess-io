@@ -12,7 +12,8 @@ from pathlib import Path
 
 import httpx
 
-from . import runtime
+from . import APP_NAME, runtime
+from .sources import USER_AGENT
 from .i18n import tr
 
 MANIFEST = Path(__file__).with_name("data") / "binaries.toml"
@@ -43,7 +44,7 @@ def download(url: str, dest: Path, sha256: str | None, label: str, echo=print) -
     part = dest.with_name(dest.name + ".part")
     try:
         with httpx.stream("GET", url, follow_redirects=True, timeout=httpx.Timeout(60, read=120),
-                          headers={"User-Agent": "chess-io-cli"}) as r:
+                          headers={"User-Agent": USER_AGENT}) as r:
             r.raise_for_status()
             total = int(r.headers.get("content-length") or 0)
             done, last = 0, -1
@@ -85,7 +86,7 @@ def install_stockfish(echo=print) -> Path:
         raise SetupError(tr("nessun Stockfish precompilato per {platform}: installalo e mettilo nel PATH", platform=platform_key()))
     home = runtime.data_home()
     (home / "bin").mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(prefix="chess-io-dl-") as tmp:
+    with tempfile.TemporaryDirectory(prefix=f"{APP_NAME}-dl-") as tmp:
         tmp = Path(tmp)
         arc = download(e["url"], tmp / "stockfish.tar", e["sha256"], "Stockfish", echo)
         _extract(arc, tmp / "x")
@@ -103,7 +104,7 @@ def install_llama(echo=print) -> Path:
     if e is None:
         raise SetupError(tr("nessun llama-server precompilato per {platform}: installalo e mettilo nel PATH", platform=platform_key()))
     home = runtime.data_home()
-    with tempfile.TemporaryDirectory(prefix="chess-io-dl-") as tmp:
+    with tempfile.TemporaryDirectory(prefix=f"{APP_NAME}-dl-") as tmp:
         tmp = Path(tmp)
         arc = download(e["url"], tmp / "llama.tar.gz", e["sha256"], "llama-server", echo)
         _extract(arc, tmp / "x")

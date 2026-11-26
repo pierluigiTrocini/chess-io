@@ -50,9 +50,10 @@ def main(src: str, dst: str) -> None:
 def download_and_build(dst: str) -> None:
     import tempfile
 
+    from . import APP_NAME
     from .downloads import download, manifest
     o = manifest()["openings"]
-    with tempfile.TemporaryDirectory(prefix="chess-io-op-") as tmp:
+    with tempfile.TemporaryDirectory(prefix=f"{APP_NAME}-op-") as tmp:
         for f in o["files"]:
             download(o["base"] + f, Path(tmp) / f, None, f"aperture {f}", lambda *_: None)
         main(tmp, dst)

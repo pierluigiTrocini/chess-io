@@ -15,6 +15,7 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
+from . import APP_NAME
 from .i18n import tr
 
 MODEL_FILE = "Qwen3-1.7B-Q4_K_M.gguf"
@@ -22,12 +23,35 @@ PROMPT_FILES = ("prompts.toml", "prompts.en.toml", "prompts.es.toml")   # it, en
 _EXE = ".exe" if os.name == "nt" else ""
 
 
+LEGACY_NAME = "chess-me"           # nome precedente: cartella dati e variabili CHESSME_* ancora riconosciute
+_INSTALL_DIRS = ("venv", "app")    # installazione del vecchio pacchetto: resta dov'è (la rimuove install.sh --uninstall)
+
+
+def env(name: str) -> str | None:
+    """Variabile CHESSIO_<name>, o la vecchia CHESSME_<name> se manca."""
+    return os.environ.get(f"CHESSIO_{name}") or os.environ.get(f"CHESSME_{name}")
+
+
+def _migrate_legacy(legacy: Path, home: Path) -> None:
+    """Sposta una volta sola i dati di chess-me (binari, modello, impostazioni, prompt) nella nuova cartella."""
+    try:
+        home.mkdir(parents=True)
+        for entry in legacy.iterdir():
+            if entry.name not in _INSTALL_DIRS:
+                entry.rename(home / entry.name)
+    except OSError:
+        pass   # migrazione parziale o impossibile: al peggio si riscarica
+
+
 def data_home() -> Path:
     """Cartella dei dati utente: binari scaricati, modello LLM, prompt personalizzati."""
-    if os.environ.get("CHESSIO_HOME"):
-        return Path(os.environ["CHESSIO_HOME"]).expanduser()
-    base = os.environ.get("XDG_DATA_HOME") or str(Path.home() / ".local" / "share")
-    return Path(base).expanduser() / "chess-io"
+    if explicit := env("HOME"):
+        return Path(explicit).expanduser()
+    base = Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local" / "share").expanduser()
+    home = base / APP_NAME
+    if not home.exists() and (base / LEGACY_NAME).is_dir():
+        _migrate_legacy(base / LEGACY_NAME, home)
+    return home
 
 
 LAST_SEARCH_FILE = "last_search.json"
@@ -167,7 +191,7 @@ def _free_port() -> int:
 def bootstrap(depth: int | None = None) -> Resources:
     """Imposta l'ambiente per i moduli `chess_io.*`. Nessun file persistente: DATA_DIR è temporanea."""
     res = resolve()
-    tmp = Path(tempfile.mkdtemp(prefix="chess-io-"))
+    tmp = Path(tempfile.mkdtemp(prefix=f"{APP_NAME}-"))
     atexit.register(shutil.rmtree, tmp, True)
     for p in res.prompts:
         shutil.copyfile(p, tmp / p.name)  # llm.prompts legge DATA_DIR/prompts*.toml

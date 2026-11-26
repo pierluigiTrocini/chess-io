@@ -12,12 +12,26 @@
 #   ./install.sh --uninstall [--purge]   --purge elimina anche binari, modello LLM e dati scaricati
 #   ./install.sh --lang it|en|es  lingua predefinita di chess-io (e dell'installer); nel menu è la prima scelta
 #
-# Variabili: PYTHON (interprete >= 3.12 da usare), CHESSIO_HOME (cartella dei dati, default ~/.local/share/chess-io).
+# Variabili: PYTHON (interprete >= 3.12 da usare), CHESSIO_HOME (cartella dei dati, default ~/.local/share/chess-io;
+# i dati di ~/.local/share/chess-me vengono spostati lì al primo avvio).
 # Funziona con bash 3.2 (macOS) e richiede curl per mostrare l'avanzamento dei download.
 set -eu
 
 # ============================================================ configurazione
-DATA_HOME="${CHESSIO_HOME:-${XDG_DATA_HOME:-$HOME/.local/share}/chess-io}"
+DATA_HOME="${CHESSIO_HOME:-${CHESSME_HOME:-}}"
+if [ -z "$DATA_HOME" ]; then
+  DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}/chess-io"
+  # Stessa migrazione di runtime.data_home(): i dati di chess-me passano una volta sola nella nuova cartella;
+  # venv/ e app/ (la vecchia installazione) restano dove sono.
+  LEGACY_HOME="${XDG_DATA_HOME:-$HOME/.local/share}/chess-me"
+  if [ ! -e "$DATA_HOME" ] && [ -d "$LEGACY_HOME" ]; then
+    mkdir -p "$DATA_HOME"
+    for e in "$LEGACY_HOME"/* "$LEGACY_HOME"/.[!.]*; do
+      [ -e "$e" ] || continue
+      case "$(basename "$e")" in venv|app) ;; *) mv "$e" "$DATA_HOME/" 2>/dev/null || true ;; esac
+    done
+  fi
+fi
 BIN_DIR="$HOME/.local/bin"
 PREFIX=""
 FROM=""

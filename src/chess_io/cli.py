@@ -13,7 +13,7 @@ import argparse
 import asyncio
 import sys
 
-from . import __version__, i18n, runtime
+from . import APP_NAME, __version__, i18n, runtime
 from .i18n import tr
 
 EXIT_INPUT = 2
@@ -22,7 +22,7 @@ COMMANDS = ("doctor", "setup", "remove-model", "lang")
 
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
-        prog="chess-io",
+        prog=APP_NAME,
         description=tr("Analizza una partita con Stockfish e la rivedi nel terminale: mosse classificate, "
                        "commenti, varianti migliori e riassunto."),
         epilog=tr("Senza -l/-pgn/-u si apre la ricerca delle partite di un utente. Altri comandi: chess-io doctor · "
@@ -44,12 +44,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--lang", choices=i18n.LANGS, default=None,
                    help=tr("lingua di interfaccia e commenti solo per questa volta (default: quella impostata con "
                            "chess-io lang, ora {lang})", lang=i18n.lang()))
-    p.add_argument("--version", action="version", version=f"chess-io {__version__}")
+    p.add_argument("--version", action="version", version=f"{APP_NAME} {__version__}")
     return p
 
 
 def _err(msg: str) -> int:
-    print(f"chess-io: {msg}", file=sys.stderr)
+    print(f"{APP_NAME}: {msg}", file=sys.stderr)
     return EXIT_INPUT
 
 
@@ -72,7 +72,7 @@ def doctor() -> int:
 
 
 def setup(argv: list[str]) -> int:
-    p = argparse.ArgumentParser(prog="chess-io setup", description=tr(
+    p = argparse.ArgumentParser(prog=f"{APP_NAME} setup", description=tr(
         "Scarica le risorse mancanti in {path} (Stockfish, aperture; con --llm anche llama-server e modello).",
         path=runtime.data_home()))
     p.add_argument("--llm", action="store_true", help=tr("anche llama-server e il modello Qwen3 1.7B (~1,1 GB)"))
@@ -125,7 +125,7 @@ def remove_model() -> int:
 
 def lang_cmd(argv: list[str]) -> int:
     """`chess-io lang` mostra la lingua predefinita, `chess-io lang en` la imposta."""
-    p = argparse.ArgumentParser(prog="chess-io lang", description=tr(
+    p = argparse.ArgumentParser(prog=f"{APP_NAME} lang", description=tr(
         "Mostra o imposta la lingua predefinita di interfaccia e commenti."))
     p.add_argument("code", nargs="?", choices=i18n.LANGS, metavar="it|en|es",
                    help=" · ".join(f"{c} = {i18n.NAMES[c]}" for c in i18n.LANGS))
