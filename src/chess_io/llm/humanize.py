@@ -144,7 +144,7 @@ def check(text: str, template: str, facts: dict | None, cls: str | None = None) 
         "concepts": concepts,
         "passed": reason is None,
         "reason": reason,
-        "model": server.MODEL_NAME,
+        "model": server.model_name(),
     }
 
 

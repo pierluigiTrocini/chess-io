@@ -4,6 +4,8 @@
 #   ./install.sh                  menu interattivo (↑/↓, Spazio, Invio, Esc): scegli cosa installare e scaricare
 #   ./install.sh --yes            senza domande: chess-io + Stockfish + aperture (con --llm anche l'LLM)
 #   ./install.sh --llm            preseleziona llama-server e il modello LLM (~1,1 GB)
+#   ./install.sh --llm-url URL --llm-model NOME   usa il tuo LLM (Ollama, LM Studio, API compatibile OpenAI):
+#                                 niente llama-server né modello da scaricare (poi: F3 in chess-io o chess-io llm)
 #   ./install.sh --from <spec>    cosa installare: cartella, .whl, git+https://… (default: questa cartella)
 #   ./install.sh --pipx | --pip   forza il metodo (pip = venv dedicato)
 #   ./install.sh --no-setup       non scaricare nulla oltre al programma (es. Stockfish già nel PATH)
@@ -40,6 +42,8 @@ MODE=""            # install | uninstall (vuoto = chiedi)
 PURGE=0
 ASSUME_YES=0
 PRESEL_LLM=0
+LLM_URL=""
+LLM_MODEL=""
 NO_SETUP=0
 SRC="$(cd "$(dirname "$0")" && pwd)"
 MARK=".chess-io-venv"
@@ -59,6 +63,8 @@ while [ $# -gt 0 ]; do
     --pipx) METHOD=pipx; shift ;;
     --pip) METHOD=pip; shift ;;
     --llm) PRESEL_LLM=1; shift ;;
+    --llm-url) LLM_URL="$2"; shift 2 ;;
+    --llm-model) LLM_MODEL="$2"; shift 2 ;;
     --no-setup) NO_SETUP=1; shift ;;
     --prefix) PREFIX="$2"; shift 2 ;;
     --bin-dir) BIN_DIR="$2"; shift 2 ;;
@@ -66,7 +72,7 @@ while [ $# -gt 0 ]; do
     --purge) PURGE=1; shift ;;
     -y|--yes) ASSUME_YES=1; shift ;;
     --lang) UI_LANG="$2"; shift 2 ;;
-    -h|--help) sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) printf 'install.sh: opzione sconosciuta / unknown option: %s (--help)\n' "$1" >&2; exit 1 ;;
   esac
 done
@@ -526,7 +532,8 @@ item_details() {
     2) row "  $(L "Commenti e riassunto riscritti da un LLM locale (Qwen3 1.7B con llama.cpp)." "Comments and summary rewritten by a local LLM (Qwen3 1.7B with llama.cpp)." "Comentarios y resumen reescritos por un LLM local (Qwen3 1.7B con llama.cpp).")"
        row "  llama-server: $(state "$ST_LL")"
        row "  $(L "modello:     " "model:       " "modelo:      ") $(state "$ST_MD")"
-       row "  ${D}$(L "Si usa con chess-io --llm · il modello si elimina con chess-io remove-model" "Used with chess-io --llm · remove the model with chess-io remove-model" "Se usa con chess-io --llm · el modelo se elimina con chess-io remove-model")${R}" ;;
+       row "  ${D}$(L "Si usa con chess-io --llm · il modello si elimina con chess-io remove-model" "Used with chess-io --llm · remove the model with chess-io remove-model" "Se usa con chess-io --llm · el modelo se elimina con chess-io remove-model")${R}"
+       row "  ${D}$(L "Hai già Ollama, LM Studio o un'API? Non serve scaricarlo: F3 in chess-io o chess-io llm set" "Already have Ollama, LM Studio or an API? No need to download it: F3 in chess-io or chess-io llm set" "¿Ya tienes Ollama, LM Studio o una API? No hace falta descargarlo: F3 en chess-io o chess-io llm set")${R}" ;;
   esac
 }
 
@@ -884,6 +891,11 @@ fi
 step "$(L Verifica Check Verificación)"
 if "$CMD" lang "$UI_LANG" >/dev/null 2>&1; then ok "$(L "lingua predefinita" "default language" "idioma predeterminado"): $(lang_name "$UI_LANG")"
 else warn "$(L "lingua non salvata: usa chess-io lang" "language not saved: use chess-io lang" "idioma no guardado: usa chess-io lang") $UI_LANG"; fi
+if [ -n "$LLM_URL" ]; then
+  if [ -z "$LLM_MODEL" ]; then warn "$(L "--llm-url senza --llm-model: imposta il modello con chess-io llm set" "--llm-url without --llm-model: set the model with chess-io llm set" "--llm-url sin --llm-model: indica el modelo con chess-io llm set")"
+  elif "$CMD" llm set --url "$LLM_URL" --model "$LLM_MODEL" >/dev/null 2>&1; then ok "LLM: $LLM_URL ($LLM_MODEL)"
+  else warn "$(L "LLM non salvato: usa chess-io llm set" "LLM not saved: use chess-io llm set" "LLM no guardado: usa chess-io llm set")"; fi
+fi
 if [ "$FALLBACK_SETUP" = 1 ]; then
   if [ "$SEL_LLM" = 1 ]; then "$CMD" setup --llm --yes || true; else "$CMD" setup --yes || true; fi
 fi
@@ -902,4 +914,5 @@ say "  $(L "Prova: " "Try:   " "Prueba:") ${B}chess-io -l https://lichess.org/<$
 say "          ${B}chess-io -u lichess <$(L utente user usuario)>${R}"
 [ "$SEL_LLM" = 1 ] && say "          ${B}chess-io -pgn $(L partita game partida).pgn --llm${R}"
 say "          ${B}chess-io lang it|en|es${R}   ${D}$(L "per cambiare lingua" "to change language" "para cambiar de idioma")${R}"
+say "          ${B}chess-io llm${R}   ${D}$(L "per usare il tuo LLM (o F3 nella ricerca)" "to use your own LLM (or F3 in the search screen)" "para usar tu propio LLM (o F3 en la búsqueda)")${R}"
 say ""

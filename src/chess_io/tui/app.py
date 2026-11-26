@@ -5,11 +5,12 @@ from textual.app import App
 from textual.binding import Binding
 
 from .. import APP_NAME, runtime, session
+from ..llm import server as llm_server
 from ..i18n import tr
 from ..llm import jobs as llm_jobs
 from ..session import Loaded, Review
 from .review import ReviewScreen
-from .screens import AnalysisScreen, ColorScreen, ConfirmScreen, PickScreen, SearchScreen
+from .screens import AnalysisScreen, ColorScreen, ConfirmScreen, LlmSettingsScreen, PickScreen, SearchScreen
 
 
 class ChessIoApp(App):
@@ -105,7 +106,7 @@ class ChessIoApp(App):
     def start_llm(self) -> None:
         rv = self.review
         if not llm_jobs.available():
-            rv.llm_status, rv.llm_error = "error", tr("llama-server non trovato (vedi chess-io doctor)")
+            rv.llm_status, rv.llm_error = "error", tr("llama-server non trovato: scaricalo dalle impostazioni LLM (o)")
             self.review_screen.refresh_llm_status()
             return
         if llm_jobs.model_ready():
@@ -121,6 +122,34 @@ class ChessIoApp(App):
         self.push_screen(ConfirmScreen(tr(
             "Per i commenti LLM serve il modello Qwen3 1.7B ({size:.1f} GB), da scaricare una volta sola da Hugging Face. "
             "Scaricarlo ora?", size=llm_jobs.MODEL_SIZE_GB)), answer)
+
+    def open_llm_settings(self) -> None:
+        """Schermata delle impostazioni LLM (F3 nella ricerca, o nella revisione); le scelte valgono subito."""
+        before = (llm_server.backend(), self.llm)
+        self.push_screen(LlmSettingsScreen(), lambda mode: mode is not None and self.run_worker(
+            self._apply_llm(mode, before), group="llm-apply"))
+
+    async def _apply_llm(self, mode: str, before) -> None:
+        s = runtime.llm_settings()
+        await llm_server.configure(llm_server.Backend(s.url, s.model, s.api_key) if mode == "external"
+                                   else llm_server.Backend())
+        self.llm = mode != "off"
+        screen, rv = self.review_screen, self.review
+        if screen is None or rv is None:
+            return
+        if not self.llm:
+            self.workers.cancel_group(self, "llm")
+            screen.llm_enabled = screen.use_llm = False
+            screen.refresh_llm_status()
+            screen.render_state()
+            return
+        changed = (llm_server.backend(), True) != before
+        screen.llm_enabled = screen.use_llm = True
+        if changed or rv.llm_status in ("none", "error"):
+            self.workers.cancel_group(self, "llm")
+            rv.llm_status, rv.llm_error = "none", None
+            self.start_llm()
+        screen.refresh_llm_status()
 
     def _run_llm(self) -> None:
         screen = self.review_screen

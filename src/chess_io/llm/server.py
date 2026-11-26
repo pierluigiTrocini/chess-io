@@ -1,18 +1,24 @@
-"""Gestione di llama-server e del modello.
+"""Backend LLM: llama-server locale con Qwen3 oppure un servizio scelto dall'utente.
 
-Il modello non è nel pacchetto: viene scaricato in LLM_MODEL_PATH (~/.local/share/chess-io/models) al primo
+Locale: il modello non è nel pacchetto, viene scaricato in LLM_MODEL_PATH (~/.local/share/chess-io/models) al primo
 --llm, con verifica SHA256, e si elimina con `chess-io remove-model`. Il processo parte solo quando serve e si
 ferma all'uscita della CLI.
+
+Esterno: qualunque servizio con API compatibile OpenAI (`<url>/chat/completions`): Ollama, LM Studio, vLLM,
+llama.cpp già avviato, OpenAI, OpenRouter… Nessun processo e nessun download. Si sceglie con LLM_BASE_URL,
+LLM_MODEL, LLM_API_KEY (impostate da runtime.bootstrap) oppure a runtime con `configure()`.
 """
 import asyncio
 import hashlib
 import logging
 import os
+from dataclasses import dataclass
 from pathlib import Path
 
 import httpx
 
 from .. import config
+from ..runtime import is_local_url, normalize_url  # noqa: F401  (riesportati)
 from ..i18n import tr
 
 log = logging.getLogger(__name__)
@@ -27,7 +33,34 @@ PORT = int(os.environ.get("LLM_PORT", "8081"))
 THREADS = int(os.environ.get("LLM_THREADS", "4"))
 CTX = int(os.environ.get("LLM_CTX", "4096"))
 MODEL_NAME = os.environ.get("LLM_MODEL_NAME", "Qwen3 1.7B (Q4_K_M)")
-BASE_URL = f"http://127.0.0.1:{PORT}"
+LOCAL_URL = f"http://127.0.0.1:{PORT}"
+EXTERNAL_TOKENS_FACTOR = float(os.environ.get("LLM_MAX_TOKENS_FACTOR", "4"))  # margine per i modelli "ragionanti"
+EXTERNAL_TIMEOUT = float(os.environ.get("LLM_TIMEOUT", "180"))
+RETRY_STATUS = (429, 500, 502, 503, 504)
+
+
+@dataclass(frozen=True)
+class Backend:
+    """url vuoto = llama-server locale; altrimenti servizio compatibile OpenAI."""
+    url: str = ""
+    model: str = ""
+    api_key: str = ""
+
+    def __post_init__(self):
+        object.__setattr__(self, "url", normalize_url(self.url))
+        object.__setattr__(self, "model", self.model.strip())
+        object.__setattr__(self, "api_key", self.api_key.strip())
+
+    @property
+    def external(self) -> bool:
+        return bool(self.url)
+
+    def headers(self) -> dict:
+        return {"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
+
+
+_backend = Backend(os.environ.get("LLM_BASE_URL", ""), os.environ.get("LLM_MODEL", ""),
+                   os.environ.get("LLM_API_KEY", ""))
 
 _proc: asyncio.subprocess.Process | None = None
 _lock = asyncio.Lock()
@@ -37,17 +70,46 @@ _busy = 0
 download: dict = {"status": "idle", "done": 0, "total": 0, "error": None}  # idle | downloading | error
 
 
+def backend() -> Backend:
+    return _backend
+
+
+def external() -> bool:
+    return _backend.external
+
+
+async def configure(b: Backend) -> None:
+    """Cambia backend durante la sessione (schermata delle impostazioni): llama-server si ferma se non serve più."""
+    global _backend
+    if b.external:
+        await stop()
+    _backend = b
+
+
+def model_name() -> str:
+    return _backend.model if _backend.external else MODEL_NAME
+
+
 def available() -> bool:
-    """Il binario llama-server è stato trovato (bundle, chess-io setup --llm o PATH)."""
+    """Si può usare l'LLM: servizio esterno configurato, oppure il binario llama-server è stato trovato."""
+    return _backend.external or SERVER_PATH.is_file()
+
+
+def local_available() -> bool:
     return SERVER_PATH.is_file()
 
 
 def model_ready() -> bool:
+    """Niente da scaricare: modello locale presente, oppure servizio esterno."""
+    return _backend.external or MODEL_PATH.is_file()
+
+
+def local_model_ready() -> bool:
     return MODEL_PATH.is_file()
 
 
 def model_size() -> int:
-    return MODEL_PATH.stat().st_size if model_ready() else 0
+    return MODEL_PATH.stat().st_size if local_model_ready() else 0
 
 
 def running() -> bool:
@@ -55,11 +117,11 @@ def running() -> bool:
 
 
 async def ensure_model(client: httpx.AsyncClient | None = None) -> None:
-    """Scarica il modello se manca (una sola volta anche con richieste concorrenti)."""
-    if model_ready():
+    """Scarica il modello locale se manca (una sola volta anche con richieste concorrenti)."""
+    if local_model_ready():
         return
     async with _dl_lock:
-        if model_ready():
+        if local_model_ready():
             return
         MODEL_PATH.parent.mkdir(parents=True, exist_ok=True)
         tmp = MODEL_PATH.with_suffix(".part")
@@ -101,7 +163,7 @@ async def delete_model() -> None:
 
 async def _healthy(client: httpx.AsyncClient) -> bool:
     try:
-        r = await client.get(f"{BASE_URL}/health", timeout=2)
+        r = await client.get(f"{LOCAL_URL}/health", timeout=2)
         return r.status_code == 200
     except httpx.HTTPError:
         return False
@@ -109,7 +171,9 @@ async def _healthy(client: httpx.AsyncClient) -> bool:
 
 async def ensure_started(timeout_s: float = 120) -> None:
     global _proc
-    if not available():
+    if _backend.external:
+        return
+    if not local_available():
         raise RuntimeError(tr("llama-server non trovato"))
     await ensure_model()
     async with _lock:
@@ -147,23 +211,100 @@ async def stop() -> None:
         _proc = None
 
 
-async def chat(messages: list[dict], max_tokens: int = 160, temperature: float = 0.3) -> str:
+def http_error(e: Exception, b: Backend | None = None) -> str:
+    """Messaggio leggibile per un errore del servizio LLM."""
+    url = (b or _backend).url or LOCAL_URL
+    if isinstance(e, httpx.HTTPStatusError):
+        code = e.response.status_code
+        if code in (401, 403):
+            return tr("chiave API mancante o non valida (HTTP {code})", code=code)
+        if code == 404:
+            return tr("modello o indirizzo non trovato (HTTP 404 da {url})", url=url)
+        detail = ""
+        try:
+            err = e.response.json().get("error")
+            detail = err.get("message", "") if isinstance(err, dict) else str(err or "")
+        except (ValueError, AttributeError):
+            pass
+        return tr("il servizio ha risposto HTTP {code}", code=code) + (f": {detail[:200]}" if detail else "")
+    if isinstance(e, httpx.TimeoutException):
+        return tr("nessuna risposta da {url} (tempo scaduto)", url=url)
+    if isinstance(e, httpx.TransportError):
+        return tr("impossibile contattare {url}", url=url)
+    return str(e) or e.__class__.__name__
+
+
+async def _post(client: httpx.AsyncClient, url: str, payload: dict, b: Backend) -> dict:
+    """POST con 2 nuovi tentativi su 429/5xx/timeout (servizi remoti con limiti di frequenza)."""
+    for attempt in range(3):
+        try:
+            r = await client.post(url, json=payload, headers=b.headers())
+            if r.status_code in RETRY_STATUS and attempt < 2:
+                await asyncio.sleep(float(r.headers.get("retry-after") or 0) or 2 ** attempt)
+                continue
+            r.raise_for_status()
+            return r.json()
+        except (httpx.TimeoutException, httpx.ConnectError):
+            if attempt == 2 or not b.external:
+                raise
+            await asyncio.sleep(2 ** attempt)
+    raise AssertionError("unreachable")
+
+
+async def chat(messages: list[dict], max_tokens: int = 160, temperature: float = 0.3,
+               backend: Backend | None = None) -> str:
+    """Una risposta del modello. `backend` serve a provare un servizio prima di salvarlo."""
     global _last_used, _busy
+    b = backend or _backend
     _busy += 1
     try:
-        await ensure_started()
-        payload = {
-            "messages": messages,
-            "temperature": temperature,
-            "top_p": 0.9,
-            "max_tokens": max_tokens,
-            "cache_prompt": True,
-            "chat_template_kwargs": {"enable_thinking": False},  # Qwen3: niente "ragionamento" visibile
-        }
-        async with httpx.AsyncClient(timeout=180) as client:
-            r = await client.post(f"{BASE_URL}/v1/chat/completions", json=payload)
-            r.raise_for_status()
-            return r.json()["choices"][0]["message"]["content"] or ""
+        payload = {"messages": messages, "temperature": temperature, "top_p": 0.9, "max_tokens": max_tokens}
+        if b.external:
+            if not b.model:
+                raise RuntimeError(tr("manca il nome del modello"))
+            payload["model"] = b.model
+            payload["max_tokens"] = int(max_tokens * EXTERNAL_TOKENS_FACTOR)
+            url, timeout = f"{b.url}/chat/completions", EXTERNAL_TIMEOUT
+        else:
+            await ensure_started()
+            payload["cache_prompt"] = True
+            payload["chat_template_kwargs"] = {"enable_thinking": False}  # Qwen3: niente "ragionamento" visibile
+            url, timeout = f"{LOCAL_URL}/v1/chat/completions", 180
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            try:
+                data = await _post(client, url, payload, b)
+            except httpx.HTTPError as e:
+                raise RuntimeError(http_error(e, b)) from e
+        try:
+            return data["choices"][0]["message"]["content"] or ""
+        except (KeyError, IndexError, TypeError) as e:
+            raise RuntimeError(tr("risposta inattesa dal servizio LLM")) from e
     finally:
         _busy -= 1
         _last_used = asyncio.get_running_loop().time()
+
+
+async def list_models(b: Backend) -> list[str]:
+    """Modelli offerti dal servizio (GET <url>/models); [] se il servizio non li elenca."""
+    async with httpx.AsyncClient(timeout=15) as client:
+        try:
+            r = await client.get(f"{b.url}/models", headers=b.headers())
+            if r.status_code == 404:
+                return []
+            r.raise_for_status()
+            data = r.json().get("data") or []
+        except httpx.HTTPError as e:
+            raise RuntimeError(http_error(e, b)) from e
+        except (ValueError, AttributeError):
+            return []
+    return sorted(str(m["id"]) for m in data if isinstance(m, dict) and m.get("id"))
+
+
+async def probe(b: Backend) -> tuple[list[str], str]:
+    """Prova un servizio: (modelli disponibili, risposta a un messaggio brevissimo). Solleva RuntimeError."""
+    models = await list_models(b)
+    if not b.model:
+        return models, ""
+    reply = await chat([{"role": "user", "content": "Reply with the single word: ok"}], max_tokens=16,
+                       temperature=0, backend=b)
+    return models, reply.strip()

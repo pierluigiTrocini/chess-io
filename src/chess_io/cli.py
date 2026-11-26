@@ -7,6 +7,7 @@
     chess-io doctor               dove sono Stockfish, aperture, llama-server, modello
     chess-io setup [--llm]        scarica i binari (installazione con pip/pipx)
     chess-io remove-model         elimina il modello LLM scaricato
+    chess-io llm [show|off|local|set|test]   LLM: Qwen3 locale o il proprio servizio (anche F3 nella ricerca)
     chess-io lang [it|en|es]      mostra o imposta la lingua predefinita (anche --lang per una sola volta)
 """
 import argparse
@@ -17,7 +18,7 @@ from . import APP_NAME, __version__, i18n, runtime
 from .i18n import tr
 
 EXIT_INPUT = 2
-COMMANDS = ("doctor", "setup", "remove-model", "lang")
+COMMANDS = ("doctor", "setup", "remove-model", "lang", "llm")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -26,7 +27,7 @@ def build_parser() -> argparse.ArgumentParser:
         description=tr("Analizza una partita con Stockfish e la rivedi nel terminale: mosse classificate, "
                        "commenti, varianti migliori e riassunto."),
         epilog=tr("Senza -l/-pgn/-u si apre la ricerca delle partite di un utente. Altri comandi: chess-io doctor · "
-                  "chess-io setup [--llm] [--yes] · chess-io remove-model · chess-io lang [it|en|es]"),
+                  "chess-io setup [--llm] [--yes] · chess-io remove-model · chess-io lang [it|en|es] · chess-io llm"),
     )
     src = p.add_mutually_exclusive_group()  # nessuna sorgente = schermata di ricerca
     src.add_argument("-l", "--link", metavar="LINK", help=tr("link a una partita di lichess.org o chess.com"))
@@ -40,7 +41,15 @@ def build_parser() -> argparse.ArgumentParser:
                    help=tr("profondità di Stockfish per posizione (default 16)"))
     p.add_argument("-g", "--game", type=int, default=None, metavar="N",
                    help=tr("se il PGN (o -u) contiene più partite, analizza la N-esima (default: scelta a schermo)"))
-    p.add_argument("--llm", action="store_true", help=tr("commenti e riassunto riscritti dall'LLM locale (verificati)"))
+    llm = p.add_mutually_exclusive_group()
+    llm.add_argument("--llm", dest="llm", action="store_true", default=None,
+                     help=tr("commenti e riassunto riscritti dall'LLM (verificati): Qwen3 locale o il servizio "
+                             "impostato con chess-io llm"))
+    llm.add_argument("--no-llm", dest="llm", action="store_false", help=tr("niente LLM per questa volta"))
+    p.add_argument("--llm-url", metavar="URL", default=None,
+                   help=tr("usa questo servizio compatibile OpenAI solo per questa volta, es. "
+                           "http://localhost:11434/v1 (implica --llm)"))
+    p.add_argument("--llm-model", metavar=tr("MODELLO"), default=None, help=tr("nome del modello per --llm-url"))
     p.add_argument("--lang", choices=i18n.LANGS, default=None,
                    help=tr("lingua di interfaccia e commenti solo per questa volta (default: quella impostata con "
                            "chess-io lang, ora {lang})", lang=i18n.lang()))
@@ -56,7 +65,9 @@ def _err(msg: str) -> int:
 def _missing(res, llm: bool) -> str | None:
     if res.stockfish is None:
         return tr("Stockfish non trovato. Esegui 'chess-io setup' oppure installalo nel PATH.")
-    if llm and res.llama_server is None:
+    if llm and res.llm.external and not res.llm.model:
+        return tr("manca il nome del modello: usa --llm-model oppure 'chess-io llm set --model NOME'.")
+    if llm and not res.llm.external and res.llama_server is None:
         return tr("llama-server non trovato: esegui 'chess-io setup --llm' oppure avvia senza --llm.")
     return None
 
@@ -79,6 +90,9 @@ def setup(argv: list[str]) -> int:
     p.add_argument("--yes", "-y", action="store_true", help=tr("non chiedere conferma"))
     a = p.parse_args(argv)
     res = runtime.resolve()
+    if a.llm and res.llm.external:
+        print(tr("LLM: uso il servizio {url}, niente da scaricare.", url=res.llm.url))
+        a.llm = False
     todo = []
     if res.stockfish is None:
         todo.append(("Stockfish", "stockfish"))
@@ -140,6 +154,68 @@ def lang_cmd(argv: list[str]) -> int:
     return 0
 
 
+def _print_llm(s: runtime.LlmSettings) -> None:
+    print(f"{tr('Modalità'):<10} {s.saved_mode}")
+    print(f"{tr('Servizio'):<10} {s.url or '-'}")
+    print(f"{tr('Modello'):<10} {s.model or '-'}")
+    key = tr("da variabile d'ambiente") if s.key_from_env else tr("salvata") if s.api_key else tr("nessuna")
+    print(f"{tr('Chiave API'):<10} {key}")
+    if s.url and not runtime.is_local_url(s.url):
+        print(tr("Nota: {url} è remoto, le partite vengono inviate lì.", url=s.url))
+
+
+def llm_cmd(argv: list[str]) -> int:
+    """`chess-io llm`: le stesse scelte della schermata F3, senza interfaccia (script, install.sh)."""
+    p = argparse.ArgumentParser(prog=f"{APP_NAME} llm", description=tr(
+        "Sceglie l'LLM per commenti e riassunto: off (solo con --llm), local (llama-server + Qwen3 1.7B) oppure "
+        "il proprio servizio compatibile OpenAI (Ollama, LM Studio, OpenAI, OpenRouter…)."))
+    sub = p.add_subparsers(dest="action")
+    sub.add_parser("show", help=tr("mostra le impostazioni (default)"))
+    sub.add_parser("off", help=tr("LLM solo con --llm, in locale"))
+    sub.add_parser("local", help=tr("llama-server + Qwen3 1.7B, attivo di default"))
+    st = sub.add_parser("set", help=tr("il mio servizio, attivo di default"))
+    st.add_argument("--url", required=True, help=tr("indirizzo base, es. http://localhost:11434/v1"))
+    st.add_argument("--model", required=True, metavar=tr("MODELLO"), help=tr("nome del modello, es. qwen3:4b"))
+    key = st.add_mutually_exclusive_group()
+    key.add_argument("--ask-key", action="store_true", help=tr("chiede la chiave API (non resta nella cronologia)"))
+    key.add_argument("--no-key", action="store_true", help=tr("rimuove la chiave API salvata"))
+    sub.add_parser("test", help=tr("prova il servizio configurato"))
+    a = p.parse_args(argv)
+    action = a.action or "show"
+    if action == "show":
+        _print_llm(runtime.llm_settings())
+        return 0
+    if action == "test":
+        s = runtime.llm_settings()
+        if not s.external:
+            return _err(tr("nessun servizio configurato: usa 'chess-io llm set --url … --model …'."))
+        runtime.bootstrap(llm=s)
+        from .llm import server
+        try:
+            models, reply = asyncio.run(server.probe(server.backend()))
+        except RuntimeError as e:
+            return _err(str(e))
+        if models:
+            print(tr("Modelli disponibili: {models}", models=", ".join(models[:20])))
+        print(tr("Il modello {model} risponde: {reply}", model=s.model, reply=reply or "…"))
+        return 0
+    if action in ("off", "local"):
+        cur = runtime.load_settings()
+        ok = runtime.save_llm_settings(action, cur.get("llm_url", ""), cur.get("llm_model", ""))
+    else:
+        api_key = None
+        if a.ask_key:
+            import getpass
+            api_key = getpass.getpass(tr("Chiave API (vuota = nessuna): "))
+        elif a.no_key:
+            api_key = ""
+        ok = runtime.save_llm_settings("external", runtime.normalize_url(a.url), a.model, api_key)
+    if not ok:
+        return _err(tr("impossibile salvare l'impostazione in {path}", path=runtime.data_home()))
+    _print_llm(runtime.llm_settings())
+    return 0
+
+
 def _lang_arg(argv: list[str]) -> str | None:
     """--lang letto prima del parser, così anche l'aiuto (-h) è nella lingua scelta."""
     for i, a in enumerate(argv):
@@ -157,12 +233,18 @@ def main(argv: list[str] | None = None) -> int:
         cmd, rest = argv[0], argv[1:]
         if cmd == "lang":
             return lang_cmd(rest)
+        if cmd == "llm":
+            return llm_cmd(rest)
         return doctor() if cmd == "doctor" else setup(rest) if cmd == "setup" else remove_model()
     args = build_parser().parse_args(argv)
     if args.depth is not None and not 4 <= args.depth <= 30:
         return _err(tr("--depth va da 4 a 30"))
 
-    res = runtime.bootstrap(depth=args.depth)
+    if args.llm_model and not args.llm_url and not runtime.llm_settings().url:
+        return _err(tr("--llm-model serve con --llm-url (o con un servizio impostato con chess-io llm)."))
+    enabled = True if args.llm_url and args.llm is None else args.llm
+    llm = runtime.llm_settings(enabled=enabled, url=args.llm_url, model=args.llm_model)
+    res = runtime.bootstrap(depth=args.depth, llm=llm)
     # solo ora: config legge le variabili d'ambiente impostate da bootstrap()
     from . import config
     from . import session, sources
@@ -170,9 +252,9 @@ def main(argv: list[str] | None = None) -> int:
 
     color = None if args.color == "auto" else args.color
     if not (args.link or args.pgn or args.user):   # schermata di ricerca
-        if err := _missing(res, args.llm):
+        if err := _missing(res, llm.enabled and (args.llm is True or bool(args.llm_url))):
             return _err(err)
-        app = ChessIoApp(None, None, color, config.ANALYSIS_DEPTH, args.llm)
+        app = ChessIoApp(None, None, color, config.ANALYSIS_DEPTH, llm.enabled)
         app.run()
         return app.exit_code
 
@@ -190,9 +272,9 @@ def main(argv: list[str] | None = None) -> int:
         candidate = session.pick(loaded, args.game)
     except session.InputError as e:
         return _err(str(e))
-    if err := _missing(res, args.llm):
+    if err := _missing(res, llm.enabled and (args.llm is True or bool(args.llm_url))):
         return _err(err)
-    app = ChessIoApp(loaded, candidate, color, config.ANALYSIS_DEPTH, args.llm)
+    app = ChessIoApp(loaded, candidate, color, config.ANALYSIS_DEPTH, llm.enabled)
     app.run()
     return app.exit_code
 

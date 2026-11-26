@@ -9,8 +9,6 @@ T = {
     "Lingua predefinita: {name} ({code})": "Idioma predeterminado: {name} ({code})",
     "Analizza una partita con Stockfish e la rivedi nel terminale: mosse classificate, commenti, varianti migliori e riassunto.":
         "Analiza una partida con Stockfish y revísala en la terminal: jugadas clasificadas, comentarios, mejores variantes y resumen.",
-    "Senza -l/-pgn/-u si apre la ricerca delle partite di un utente. Altri comandi: chess-io doctor · chess-io setup [--llm] [--yes] · chess-io remove-model · chess-io lang [it|en|es]":
-        "Sin -l/-pgn/-u se abre la búsqueda de partidas de un usuario. Otros comandos: chess-io doctor · chess-io setup [--llm] [--yes] · chess-io remove-model · chess-io lang [it|en|es]",
     "link a una partita di lichess.org o chess.com": "enlace a una partida de lichess.org o chess.com",
     "file .pgn, testo PGN tra virgolette, oppure - per leggerlo da stdin":
         "archivo .pgn, texto PGN entre comillas, o - para leerlo de stdin",
@@ -21,8 +19,6 @@ T = {
     "profondità di Stockfish per posizione (default 16)": "profundidad de Stockfish por posición (por defecto 16)",
     "se il PGN (o -u) contiene più partite, analizza la N-esima (default: scelta a schermo)":
         "si el PGN (o -u) contiene varias partidas, analiza la N-ésima (por defecto: se elige en pantalla)",
-    "commenti e riassunto riscritti dall'LLM locale (verificati)":
-        "comentarios y resumen reescritos por el LLM local (verificados)",
     "lingua di interfaccia e commenti solo per questa volta (default: quella impostata con chess-io lang, ora {lang})":
         "idioma de la interfaz y de los comentarios solo para esta vez (por defecto: el fijado con chess-io lang, ahora {lang})",
     "Scarica le risorse mancanti in {path} (Stockfish, aperture; con --llm anche llama-server e modello).":
@@ -302,7 +298,6 @@ T = {
 
     # ---------- TUI ----------
     "profondità {depth}": "profundidad {depth}",
-    "llama-server non trovato (vedi chess-io doctor)": "no se encontró llama-server (ver chess-io doctor)",
     "Per i commenti LLM serve il modello Qwen3 1.7B ({size:.1f} GB), da scaricare una volta sola da Hugging Face. Scaricarlo ora?":
         "Los comentarios LLM necesitan el modelo Qwen3 1.7B ({size:.1f} GB), que se descarga una sola vez de Hugging Face. ¿Descargarlo ahora?",
     "modello non scaricato": "modelo no descargado",
@@ -328,7 +323,6 @@ T = {
     "Nessun altro momento critico più avanti": "No hay más momentos críticos más adelante",
     "Nessun altro momento critico prima": "No hay momentos críticos anteriores",
     "Migliore: {move}": "Mejor: {move}",
-    "Avvia con --llm per i commenti riscritti dall'LLM": "Inicia con --llm para los comentarios reescritos por el LLM",
     "Ora sei il Bianco: riassunto ricalcolato": "Ahora juegas con blancas: resumen recalculado",
     "Ora sei il Nero: riassunto ricalcolato": "Ahora juegas con negras: resumen recalculado",
     "In breve": "En breve",
@@ -426,4 +420,156 @@ T = {
     "Gira": "Girar",
     "Aiuto": "Ayuda",
     "?": "?",
+
+    # ---------- impostazioni LLM ----------
+    "--llm-model serve con --llm-url (o con un servizio impostato con chess-io llm).":
+        "--llm-model requiere --llm-url (o un servicio configurado con chess-io llm).",
+    "Annulla":
+        "Cancelar",
+    "Chiave API":
+        "Clave API",
+    "Chiave API (vuota = nessuna): ":
+        "Clave API (vacía = ninguna): ",
+    "Disattivato (si può sempre usare --llm)":
+        "Desactivado (siempre puedes usar --llm)",
+    "Elimina modello":
+        "Eliminar modelo",
+    "Il mio servizio (API compatibile OpenAI)":
+        "Mi servicio (API compatible con OpenAI)",
+    "Il modello {model} risponde, ma non è tra quelli elencati dal servizio.":
+        "El modelo {model} responde, pero no está entre los que lista el servicio.",
+    "Il modello {model} risponde: {reply}":
+        "El modelo {model} responde: {reply}",
+    "Impostazioni LLM":
+        "Ajustes del LLM",
+    "Inserisci l'indirizzo del servizio.":
+        "Introduce la dirección del servicio.",
+    "LLM disattivato: premi o per sceglierlo, oppure avvia con --llm":
+        "LLM desactivado: pulsa o para elegirlo, o arranca con --llm",
+    "LLM solo con --llm, in locale":
+        "LLM solo con --llm, en local",
+    "LLM: uso il servizio {url}, niente da scaricare.":
+        "LLM: uso el servicio {url}, nada que descargar.",
+    "Locale: Qwen3 1.7B sul tuo computer (~1,1 GB)":
+        "Local: Qwen3 1.7B en tu ordenador (~1,1 GB)",
+    "MODELLO":
+        "MODELO",
+    "Modalità":
+        "Modo",
+    "Modelli disponibili: {models}":
+        "Modelos disponibles: {models}",
+    "Modello":
+        "Modelo",
+    "Nota: {url} è remoto, le partite vengono inviate lì.":
+        "Nota: {url} es remoto, las partidas se envían allí.",
+    "Per il tuo servizio servono indirizzo e nome del modello.":
+        "Tu servicio necesita dirección y nombre del modelo.",
+    "Prova connessione":
+        "Probar conexión",
+    "Provo {url}…":
+        "Probando {url}…",
+    "Salva":
+        "Guardar",
+    "Scarica":
+        "Descargar",
+    "Scarico il modello (una volta sola)…":
+        "Descargando el modelo (una sola vez)…",
+    "Scarico llama-server…":
+        "Descargando llama-server…",
+    "Sceglie l'LLM per commenti e riassunto: off (solo con --llm), local (llama-server + Qwen3 1.7B) oppure il proprio servizio compatibile OpenAI (Ollama, LM Studio, OpenAI, OpenRouter…).":
+        "Elige el LLM para comentarios y resumen: off (solo con --llm), local (llama-server + Qwen3 1.7B) o tu propio servicio compatible con OpenAI (Ollama, LM Studio, OpenAI, OpenRouter…).",
+    "Senza -l/-pgn/-u si apre la ricerca delle partite di un utente. Altri comandi: chess-io doctor · chess-io setup [--llm] [--yes] · chess-io remove-model · chess-io lang [it|en|es] · chess-io llm":
+        "Sin -l/-pgn/-u se abre la búsqueda de partidas de un usuario. Otros comandos: chess-io doctor · chess-io setup [--llm] [--yes] · chess-io remove-model · chess-io lang [it|en|es] · chess-io llm",
+    "Servizio":
+        "Servicio",
+    "Servizio LLM":
+        "Servicio LLM",
+    "Un LLM può riscrivere commenti e riassunto in modo più discorsivo. Ogni testo viene verificato: se cita mosse, pezzi o idee che non c'erano, resta il commento originale.":
+        "Un LLM puede reescribir comentarios y resumen de forma más natural. Cada texto se verifica: si menciona jugadas, piezas o ideas que no estaban, se mantiene el comentario original.",
+    "chiave API (facoltativa, non serve per Ollama e LM Studio)":
+        "clave API (opcional, no hace falta para Ollama y LM Studio)",
+    "chiave API mancante o non valida (HTTP {code})":
+        "clave API ausente o no válida (HTTP {code})",
+    "chiave API: presa dalla variabile d'ambiente":
+        "clave API: tomada de la variable de entorno",
+    "chiede la chiave API (non resta nella cronologia)":
+        "pide la clave API (no queda en el historial)",
+    "commenti e riassunto riscritti dall'LLM (verificati): Qwen3 locale o il servizio impostato con chess-io llm":
+        "comentarios y resumen reescritos por el LLM (verificados): Qwen3 local o el servicio configurado con chess-io llm",
+    "da variabile d'ambiente":
+        "de variable de entorno",
+    "disattivato (solo con --llm)":
+        "desactivado (solo con --llm)",
+    "il mio servizio, attivo di default":
+        "mi servicio, activo por defecto",
+    "il servizio ha risposto HTTP {code}":
+        "el servicio respondió HTTP {code}",
+    "impossibile contattare {url}":
+        "no se puede contactar con {url}",
+    "impostazioni LLM: Qwen3 locale o il tuo servizio":
+        "ajustes del LLM: Qwen3 local o tu servicio",
+    "indirizzo base, es. http://localhost:11434/v1":
+        "dirección base, p. ej. http://localhost:11434/v1",
+    "indirizzo, es. http://localhost:11434/v1":
+        "dirección, p. ej. http://localhost:11434/v1",
+    "llama-server + Qwen3 1.7B, attivo di default":
+        "llama-server + Qwen3 1.7B, activo por defecto",
+    "llama-server da scaricare (~17 MB)":
+        "llama-server por descargar (~17 MB)",
+    "llama-server non trovato: scaricalo dalle impostazioni LLM (o)":
+        "llama-server no encontrado: descárgalo desde los ajustes del LLM (o)",
+    "llama-server presente":
+        "llama-server instalado",
+    "locale, attivo di default":
+        "local, activo por defecto",
+    "manca il nome del modello":
+        "falta el nombre del modelo",
+    "manca il nome del modello: usa --llm-model oppure 'chess-io llm set --model NOME'.":
+        "falta el nombre del modelo: usa --llm-model o 'chess-io llm set --model NOMBRE'.",
+    "modello da scaricare ({size:.1f} GB, da Hugging Face)":
+        "modelo por descargar ({size:.1f} GB, de Hugging Face)",
+    "modello o indirizzo non trovato (HTTP 404 da {url})":
+        "modelo o dirección no encontrados (HTTP 404 de {url})",
+    "modello presente ({size:.1f} GB)":
+        "modelo instalado ({size:.1f} GB)",
+    "modello, es. qwen3:4b":
+        "modelo, p. ej. qwen3:4b",
+    "mostra le impostazioni (default)":
+        "muestra los ajustes (por defecto)",
+    "nessun servizio configurato: usa 'chess-io llm set --url … --model …'.":
+        "ningún servicio configurado: usa 'chess-io llm set --url … --model …'.",
+    "nessuna":
+        "ninguna",
+    "nessuna risposta da {url} (tempo scaduto)":
+        "sin respuesta de {url} (tiempo agotado)",
+    "niente LLM per questa volta":
+        "sin LLM esta vez",
+    "nome del modello per --llm-url":
+        "nombre del modelo para --llm-url",
+    "nome del modello, es. qwen3:4b":
+        "nombre del modelo, p. ej. qwen3:4b",
+    "non indicato":
+        "no indicado",
+    "o":
+        "o",
+    "prova il servizio configurato":
+        "prueba el servicio configurado",
+    "rimuove la chiave API salvata":
+        "elimina la clave API guardada",
+    "risposta inattesa dal servizio LLM":
+        "respuesta inesperada del servicio LLM",
+    "salvata":
+        "guardada",
+    "usa questo servizio compatibile OpenAI solo per questa volta, es. http://localhost:11434/v1 (implica --llm)":
+        "usa este servicio compatible con OpenAI solo esta vez, p. ej. http://localhost:11434/v1 (implica --llm)",
+    "{url} (remoto: le partite vengono inviate lì)":
+        "{url} (remoto: las partidas se envían allí)",
+    "⚠ {url} è remoto: le mosse e i commenti delle partite vengono inviati lì.":
+        "⚠ {url} es remoto: las jugadas y los comentarios de tus partidas se envían allí.",
+    "✓ Il modello {model} risponde.":
+        "✓ El modelo {model} responde.",
+    "✓ Servizio raggiungibile: indica il nome del modello.":
+        "✓ Servicio accesible: indica el nombre del modelo.",
+    "✓ Servizio raggiungibile: scegli un modello dall'elenco.":
+        "✓ Servicio accesible: elige un modelo de la lista.",
 }

@@ -59,6 +59,7 @@ class ReviewScreen(Screen):
         Binding("escape", "leave_variation", "", show=False),
         Binding("s", "summary", "Riassunto"),
         Binding("l", "toggle_llm", "LLM"),
+        Binding("o", "llm_settings", "", show=False),
         Binding("f", "flip", "Gira"),
         Binding("c", "change_color", "", show=False),
         Binding("question_mark", "help", "Aiuto", key_display="?"),
@@ -269,9 +270,13 @@ class ReviewScreen(Screen):
         self.query_one(BoardView).flip()
         self.render_state()
 
+    def action_llm_settings(self) -> None:
+        self.stop_play()
+        self.app.open_llm_settings()
+
     def action_toggle_llm(self) -> None:
         if not self.llm_enabled:
-            self.notify(tr("Avvia con --llm per i commenti riscritti dall'LLM"))
+            self.notify(tr("LLM disattivato: premi o per sceglierlo, oppure avvia con --llm"))
             return
         self.use_llm = not self.use_llm
         self.refresh_llm_status()

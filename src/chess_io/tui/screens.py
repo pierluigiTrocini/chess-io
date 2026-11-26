@@ -1,4 +1,6 @@
-"""Schermate di supporto: ricerca per utente, analisi in corso, scelta del colore / della partita, conferme, aiuto, riassunto."""
+"""Schermate di supporto: ricerca per utente, analisi in corso, scelta del colore / della partita, conferme, aiuto, riassunto,
+impostazioni LLM."""
+import asyncio
 from dataclasses import replace
 
 from rich.style import Style
@@ -51,7 +53,8 @@ class SearchScreen(Screen):
     #box RadioSet { width: 100%; layout: horizontal; }
     #box Horizontal { height: auto; align: center middle; }
     """
-    BINDINGS = [Binding("escape", "app.quit", "Esci"), Binding("f2", "next_lang", "Lingua")]
+    BINDINGS = [Binding("escape", "app.quit", "Esci"), Binding("f2", "next_lang", "Lingua"),
+                Binding("f3", "llm_settings", "LLM")]
 
     class Submitted(Message):
         def __init__(self, platform: str, username: str):
@@ -119,6 +122,10 @@ class SearchScreen(Screen):
             return
         code = i18n.LANGS[(i18n.LANGS.index(i18n.lang()) + 1) % len(i18n.LANGS)]
         self.query_one(f"#lang-{code}", RadioButton).value = True   # → on_radio_set_changed
+
+    def action_llm_settings(self) -> None:
+        if not self.busy:
+            self.app.open_llm_settings()
 
     @property
     def platform(self) -> str:
@@ -318,6 +325,7 @@ HELP = [
     ("n  N", "momento critico successivo / precedente"),
     ("b", "esplora la variante migliore"), ("r", "esplora la confutazione"), ("Esc", "torna alla partita"),
     ("s", "riassunto della partita"), ("l", "commenti template ↔ LLM (con --llm)"),
+    ("o", "impostazioni LLM: Qwen3 locale o il tuo servizio"),
     ("f", "gira la scacchiera"), ("c", "cambia il tuo colore"), ("q", "esci"),
 ]
 
@@ -433,3 +441,228 @@ class SummaryScreen(Screen[int | None]):
             self.paint()
         else:
             self.notify(tr("Riassunto LLM non disponibile") + (tr(" (in corso…)") if self.rv.llm_status == "running" else ""))
+
+
+LLM_HINTS = ("Ollama localhost:11434 · LM Studio localhost:1234 · vLLM, llama.cpp host:port\n"
+             "OpenAI https://api.openai.com/v1 · OpenRouter https://openrouter.ai/api/v1")
+
+
+class LlmSettingsScreen(ModalScreen[str | None]):
+    """Scelta dell'LLM: disattivato, Qwen3 in locale (download qui) o un servizio compatibile OpenAI dell'utente.
+    Restituisce la modalità salvata, o None se si annulla."""
+    DEFAULT_CSS = MODAL_CSS + """
+    LlmSettingsScreen { align: center middle; }
+    #dialog.llm { width: 84; height: auto; max-height: 100%; }
+    #llm-body { height: auto; }
+    #llm-body > Static, #llm-body RadioSet { margin-bottom: 1; width: 100%; }
+    #llm-buttons { dock: bottom; height: 3; margin-top: 1; }
+    #dialog.llm Input { margin: 0; }
+    #llm-local, #llm-ext { height: auto; }
+    #llm-local Horizontal, #llm-ext Horizontal { align: left middle; height: auto; }
+    #llm-local Button, #llm-ext Button { margin: 0 2 0 0; }
+    #ext-models { max-height: 6; }
+    #ext-hints, #local-status { margin-bottom: 1; }
+    """
+    BINDINGS = [Binding("escape", "cancel", "Annulla"), Binding("ctrl+s", "save", "Salva")]
+
+    def __init__(self):
+        super().__init__()
+        localize_bindings(self)
+        self.settings = runtime.llm_settings()
+        self.busy = False
+
+    def compose(self) -> ComposeResult:
+        s = self.settings
+        mode = s.saved_mode
+        with Vertical(id="dialog", classes="llm"):
+            with VerticalScroll(id="llm-body"):
+                yield Static(Text(tr("Impostazioni LLM"), Style(bold=True)))
+                yield Static(Text(tr("Un LLM può riscrivere commenti e riassunto in modo più discorsivo. Ogni testo viene "
+                                     "verificato: se cita mosse, pezzi o idee che non c'erano, resta il commento originale."),
+                                  Style(color=theme.MUTED)))
+                with RadioSet(id="llm-mode"):
+                    yield RadioButton(tr("Disattivato (si può sempre usare --llm)"), value=mode == "off", id="mode-off")
+                    yield RadioButton(tr("Locale: Qwen3 1.7B sul tuo computer (~1,1 GB)"), value=mode == "local",
+                                      id="mode-local")
+                    yield RadioButton(tr("Il mio servizio (API compatibile OpenAI)"), value=mode == "external",
+                                      id="mode-external")
+                with Vertical(id="llm-local"):
+                    yield Static(id="local-status")
+                    yield ProgressBar(id="local-progress", total=100, show_eta=False)
+                    with Horizontal():
+                        yield Button(tr("Scarica"), id="local-download", variant="primary")
+                        yield Button(tr("Elimina modello"), id="local-delete")
+                with Vertical(id="llm-ext"):
+                    yield Static(Text(LLM_HINTS, Style(color=theme.MUTED)), id="ext-hints")
+                    yield Input(s.url, placeholder=tr("indirizzo, es. http://localhost:11434/v1"), id="ext-url")
+                    yield Input(s.model, placeholder=tr("modello, es. qwen3:4b"), id="ext-model")
+                    yield Input("" if s.key_from_env else s.api_key, password=True, id="ext-key",
+                                placeholder=tr("chiave API: presa dalla variabile d'ambiente") if s.key_from_env
+                                else tr("chiave API (facoltativa, non serve per Ollama e LM Studio)"),
+                                disabled=s.key_from_env)
+                    yield OptionList(id="ext-models")
+                    with Horizontal():
+                        yield Button(tr("Prova connessione"), id="ext-probe")
+                    yield Static(id="ext-privacy")
+                    yield Static(id="ext-status")
+            with Horizontal(id="llm-buttons"):
+                yield Button(tr("Salva"), id="save", variant="primary")
+                yield Button(tr("Annulla"), id="cancel")
+
+    def on_mount(self) -> None:
+        self.query_one("#ext-models", OptionList).display = False
+        self.query_one("#local-progress", ProgressBar).display = False
+        self.refresh_local()
+        self.refresh_privacy()
+        self.show_mode()
+
+    # ---------- stato ----------
+    @property
+    def mode(self) -> str:
+        pressed = self.query_one("#llm-mode", RadioSet).pressed_button
+        return pressed.id.removeprefix("mode-") if pressed and pressed.id else "off"
+
+    def show_mode(self) -> None:
+        self.query_one("#llm-local").display = self.mode == "local"
+        self.query_one("#llm-ext").display = self.mode == "external"
+
+    def _set(self, wid: str, msg: str, color: str = theme.MUTED) -> None:
+        self.query_one(wid, Static).update(Text(msg, Style(color=color)))
+
+    def refresh_local(self) -> None:
+        from ..llm import server
+        if server.local_model_ready():
+            model = tr("modello presente ({size:.1f} GB)", size=server.model_size() / 1e9)
+        else:
+            model = tr("modello da scaricare ({size:.1f} GB, da Hugging Face)", size=server.MODEL_SIZE / 1e9)
+        llama = tr("llama-server presente") if server.local_available() else tr("llama-server da scaricare (~17 MB)")
+        ready = server.local_available() and server.local_model_ready()
+        self._set("#local-status", f"{llama} · {model}", theme.GOOD if ready else theme.MUTED)
+        self.query_one("#local-download", Button).display = not ready
+        self.query_one("#local-delete", Button).display = server.local_model_ready()
+
+    def refresh_privacy(self) -> None:
+        url = self.query_one("#ext-url", Input).value.strip()
+        if url and not runtime.is_local_url(url):
+            self._set("#ext-privacy", tr("⚠ {url} è remoto: le mosse e i commenti delle partite vengono inviati lì.",
+                                         url=runtime.normalize_url(url)), theme.CHECK)
+        else:
+            self._set("#ext-privacy", "")
+
+    def _backend(self):
+        from ..llm import server
+        key = self.settings.api_key if self.settings.key_from_env else self.query_one("#ext-key", Input).value
+        return server.Backend(self.query_one("#ext-url", Input).value, self.query_one("#ext-model", Input).value, key)
+
+    def _set_busy(self, busy: bool) -> None:
+        self.busy = busy
+        for w in self.query("RadioSet, Button, Input"):
+            if w.id != "ext-key" or not self.settings.key_from_env:
+                w.disabled = busy
+
+    # ---------- eventi ----------
+    def on_radio_set_changed(self, event: RadioSet.Changed) -> None:
+        self.show_mode()
+
+    def on_input_changed(self, event: Input.Changed) -> None:
+        if event.input.id == "ext-url":
+            self.refresh_privacy()
+
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        self.action_save()
+
+    def on_option_list_option_selected(self, event: OptionList.OptionSelected) -> None:
+        inp = self.query_one("#ext-model", Input)
+        inp.value = str(event.option.prompt)
+        inp.focus()
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        bid = event.button.id
+        if bid == "save":
+            self.action_save()
+        elif bid == "cancel":
+            self.action_cancel()
+        elif bid == "ext-probe":
+            self.run_worker(self._probe(), exclusive=True, group="llm-settings")
+        elif bid == "local-download":
+            self.run_worker(self._download(), exclusive=True, group="llm-settings")
+        elif bid == "local-delete":
+            self.run_worker(self._delete(), exclusive=True, group="llm-settings")
+
+    # ---------- azioni ----------
+    async def _probe(self) -> None:
+        from ..llm import server
+        b = self._backend()
+        if not b.url:
+            self._set("#ext-status", tr("Inserisci l'indirizzo del servizio."), theme.BAD)
+            return
+        self._set_busy(True)
+        self._set("#ext-status", tr("Provo {url}…", url=b.url))
+        try:
+            models, reply = await server.probe(b)
+        except RuntimeError as e:
+            self._set("#ext-status", "✗ " + str(e), theme.BAD)
+            return
+        finally:
+            self._set_busy(False)
+        ol = self.query_one("#ext-models", OptionList)
+        ol.clear_options()
+        ol.add_options(models[:50])
+        ol.display = bool(models)
+        if not b.model:
+            self._set("#ext-status", tr("✓ Servizio raggiungibile: scegli un modello dall'elenco.") if models
+                      else tr("✓ Servizio raggiungibile: indica il nome del modello."), theme.GOOD)
+        elif models and b.model not in models:
+            self._set("#ext-status", tr("Il modello {model} risponde, ma non è tra quelli elencati dal servizio.",
+                                        model=b.model), theme.MUTED)
+        else:
+            self._set("#ext-status", tr("✓ Il modello {model} risponde.", model=b.model), theme.GOOD)
+
+    async def _download(self) -> None:
+        from .. import downloads
+        from ..llm import server
+        bar = self.query_one("#local-progress", ProgressBar)
+        self._set_busy(True)
+        try:
+            if not server.local_available():
+                self._set("#local-status", tr("Scarico llama-server…"))
+                server.SERVER_PATH = await asyncio.to_thread(downloads.install_llama, lambda *_a, **_k: None)
+            self._set("#local-status", tr("Scarico il modello (una volta sola)…"))
+            bar.display = True
+            timer = self.set_interval(0.5, lambda: bar.update(
+                total=server.download["total"] or None, progress=server.download["done"]))
+            try:
+                await server.ensure_model()
+            finally:
+                timer.stop()
+        except (downloads.SetupError, RuntimeError) as e:
+            self._set("#local-status", "✗ " + str(e), theme.BAD)
+            return
+        finally:
+            bar.display = False
+            self._set_busy(False)
+        self.refresh_local()
+
+    async def _delete(self) -> None:
+        from ..llm import server
+        await server.delete_model()
+        self.refresh_local()
+
+    def action_save(self) -> None:
+        if self.busy:
+            return
+        mode = self.mode
+        b = self._backend()
+        if mode == "external" and (not b.url or not b.model):
+            self._set("#ext-status", tr("Per il tuo servizio servono indirizzo e nome del modello."), theme.BAD)
+            return
+        key = None if self.settings.key_from_env else self.query_one("#ext-key", Input).value
+        url = b.url if b.url else self.settings.url
+        model = b.model if b.model else self.settings.model
+        if not runtime.save_llm_settings(mode, url, model, key):
+            self.notify(tr("impossibile salvare l'impostazione in {path}", path=runtime.data_home()), severity="error")
+        self.dismiss(mode)
+
+    def action_cancel(self) -> None:
+        if not self.busy:
+            self.dismiss(None)

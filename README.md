@@ -12,6 +12,7 @@ Requires Python ≥ 3.12 (except for the self-contained folder). Three ways, fro
 ./install.sh                    # interactive menu
 ./install.sh --yes              # no questions: chess-io + Stockfish + openings
 ./install.sh --yes --llm        # plus llama-server (~17 MB) and the LLM model (~1.1 GB)
+./install.sh --yes --llm-url http://localhost:11434/v1 --llm-model qwen3:4b   # or use your own LLM, nothing to download
 ./install.sh --yes --lang en    # English as default language (without --lang: the saved one or the system's)
 ./install.sh --uninstall [--purge]
 ```
@@ -51,6 +52,7 @@ chess-io -pgn game.pgn                           # .pgn file
 chess-io -pgn '1. e4 e5 2. Nf3 Nc6 …'            # pasted PGN
 pbpaste | chess-io -pgn -                        # PGN from stdin
 chess-io -pgn game.pgn --color black --depth 18 --llm
+chess-io -pgn game.pgn --llm-url http://localhost:11434/v1 --llm-model qwen3:4b   # your own LLM, just this once
 chess-io --lang en -u lichess username           # in English, just this once
 ```
 
@@ -62,7 +64,33 @@ chess-io --lang en -u lichess username           # in English, just this once
 | `-c`, `--color white\|black\|auto` | your colour; with `auto` it is taken from the Lichess link or asked |
 | `-d`, `--depth N` | Stockfish depth per position (default 16) |
 | `-g`, `--game N` | PGN with several games: analyse the Nth (otherwise you pick on screen) |
-| `--llm` | comments and summary rewritten by the local LLM, then verified |
+| `--llm` / `--no-llm` | comments and summary rewritten by the LLM (local Qwen3 or your own service), then verified; `--no-llm` turns off a saved choice for one run |
+| `--llm-url URL`, `--llm-model NAME` | use this OpenAI-compatible service for this run only (implies `--llm`) |
 | `--lang it\|en\|es` | interface and comment language for this run only (help `-h` included) |
 
-Other commands: `chess-io doctor` (where Stockfish, openings, llama-server and the model are, plus the language), `chess-io setup [--llm] [--yes]` (downloads what is missing, for pip/pipx installs), `chess-io remove-model`, `chess-io lang [it|en|es]` (shows or sets the default language).
+Other commands: `chess-io doctor` (where Stockfish, openings, the LLM backend are, plus the language), `chess-io setup [--llm] [--yes]` (downloads what is missing, for pip/pipx installs), `chess-io remove-model`, `chess-io lang [it|en|es]` (shows or sets the default language), `chess-io llm [show|off|local|set|test]` (LLM settings, see below).
+
+## Using your own LLM
+
+Instead of downloading llama-server and Qwen3 1.7B you can point chess-io at any service with an **OpenAI-compatible API** (`<url>/chat/completions`): Ollama, LM Studio, vLLM, a llama.cpp server you already run, OpenAI, OpenRouter, Groq, Mistral and so on. Every rewritten comment goes through the same check as with the local model: if it mentions moves, pieces or ideas that are not in the original comment, it is discarded and the template comment is shown.
+
+**Interactive:** press **F3** in the search screen (or **o** during the review) to open *LLM settings* and pick one of:
+
+- **Off**: no LLM unless you start with `--llm` (local model).
+- **Local**: llama-server + Qwen3 1.7B on your computer; the screen shows what is missing and downloads it with a progress bar (or deletes the model).
+- **My own service**: base address, model name and an optional API key. *Test connection* lists the models the service offers (pick one from the list) and sends a tiny request. A remote address shows a warning, because the moves and comments of your games are sent there.
+
+Saving takes effect immediately (the current review is rewritten with the new backend) and, unless you chose *Off*, the LLM is on by default from then on.
+
+**From the command line** (same settings, handy for scripts):
+
+```bash
+chess-io llm                                                     # show the settings
+chess-io llm set --url http://localhost:11434/v1 --model qwen3:4b  # Ollama
+chess-io llm set --url https://openrouter.ai/api/v1 --model <model> --ask-key   # asks for the API key
+chess-io llm test                                                # lists models and sends a test request
+chess-io llm local                                               # back to llama-server + Qwen3
+chess-io llm off
+```
+
+Where things are stored: mode, address and model in `~/.local/share/chess-io/settings.json`; the API key in `secrets.json` next to it, readable only by you (`0600`). Environment variables take precedence: `CHESSIO_LLM_URL`, `CHESSIO_LLM_MODEL`, `CHESSIO_LLM_API_KEY` (or `OPENAI_API_KEY`). `LLM_MAX_TOKENS_FACTOR` (default 4) gives "thinking" models more room for their answer and `LLM_TIMEOUT` (default 180 s) sets the per-request timeout. Rate limits (HTTP 429) and temporary errors are retried twice. The prompts in `prompts*.toml` were tuned for a small model; larger models usually do better with them.
