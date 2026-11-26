@@ -1,16 +1,16 @@
 """Catálogo en español: texto italiano (tal como aparece en el código) → texto en español. Los marcadores deben coincidir."""
 T = {
     # ---------- CLI ----------
-    "Stockfish non trovato. Esegui 'chess-me setup' oppure installalo nel PATH.":
-        "No se encontró Stockfish. Ejecuta 'chess-me setup' o instálalo en el PATH.",
-    "llama-server non trovato: esegui 'chess-me setup --llm' oppure avvia senza --llm.":
-        "No se encontró llama-server: ejecuta 'chess-me setup --llm' o inicia sin --llm.",
+    "Stockfish non trovato. Esegui 'chess-io setup' oppure installalo nel PATH.":
+        "No se encontró Stockfish. Ejecuta 'chess-io setup' o instálalo en el PATH.",
+    "llama-server non trovato: esegui 'chess-io setup --llm' oppure avvia senza --llm.":
+        "No se encontró llama-server: ejecuta 'chess-io setup --llm' o inicia sin --llm.",
     "Da scaricare in {path}: {items}": "Por descargar en {path}: {items}",
     "Lingua predefinita: {name} ({code})": "Idioma predeterminado: {name} ({code})",
     "Analizza una partita con Stockfish e la rivedi nel terminale: mosse classificate, commenti, varianti migliori e riassunto.":
         "Analiza una partida con Stockfish y revísala en la terminal: jugadas clasificadas, comentarios, mejores variantes y resumen.",
-    "Senza -l/-pgn/-u si apre la ricerca delle partite di un utente. Altri comandi: chess-me doctor · chess-me setup [--llm] [--yes] · chess-me remove-model · chess-me lang [it|en|es]":
-        "Sin -l/-pgn/-u se abre la búsqueda de partidas de un usuario. Otros comandos: chess-me doctor · chess-me setup [--llm] [--yes] · chess-me remove-model · chess-me lang [it|en|es]",
+    "Senza -l/-pgn/-u si apre la ricerca delle partite di un utente. Altri comandi: chess-io doctor · chess-io setup [--llm] [--yes] · chess-io remove-model · chess-io lang [it|en|es]":
+        "Sin -l/-pgn/-u se abre la búsqueda de partidas de un usuario. Otros comandos: chess-io doctor · chess-io setup [--llm] [--yes] · chess-io remove-model · chess-io lang [it|en|es]",
     "link a una partita di lichess.org o chess.com": "enlace a una partida de lichess.org o chess.com",
     "file .pgn, testo PGN tra virgolette, oppure - per leggerlo da stdin":
         "archivo .pgn, texto PGN entre comillas, o - para leerlo de stdin",
@@ -23,8 +23,8 @@ T = {
         "si el PGN (o -u) contiene varias partidas, analiza la N-ésima (por defecto: se elige en pantalla)",
     "commenti e riassunto riscritti dall'LLM locale (verificati)":
         "comentarios y resumen reescritos por el LLM local (verificados)",
-    "lingua di interfaccia e commenti solo per questa volta (default: quella impostata con chess-me lang, ora {lang})":
-        "idioma de la interfaz y de los comentarios solo para esta vez (por defecto: el fijado con chess-me lang, ahora {lang})",
+    "lingua di interfaccia e commenti solo per questa volta (default: quella impostata con chess-io lang, ora {lang})":
+        "idioma de la interfaz y de los comentarios solo para esta vez (por defecto: el fijado con chess-io lang, ahora {lang})",
     "Scarica le risorse mancanti in {path} (Stockfish, aperture; con --llm anche llama-server e modello).":
         "Descarga los recursos que faltan en {path} (Stockfish, aperturas; con --llm también llama-server y el modelo).",
     "anche llama-server e il modello Qwen3 1.7B (~1,1 GB)": "también llama-server y el modelo Qwen3 1.7B (~1,1 GB)",
@@ -62,7 +62,7 @@ T = {
     "{path} (si scarica al primo --llm)": "{path} (se descarga con el primer --llm)",
     "predefiniti": "predeterminados",
     "no (Python)": "no (Python)",
-    "non trovato (chess-me setup)": "no encontrado (chess-me setup)",
+    "non trovato (chess-io setup)": "no encontrado (chess-io setup)",
     "non trovate: niente riconoscimento della teoria": "no encontradas: sin reconocimiento de la teoría",
     "non trovato: --llm non disponibile": "no encontrado: --llm no disponible",
 
@@ -302,7 +302,7 @@ T = {
 
     # ---------- TUI ----------
     "profondità {depth}": "profundidad {depth}",
-    "llama-server non trovato (vedi chess-me doctor)": "no se encontró llama-server (ver chess-me doctor)",
+    "llama-server non trovato (vedi chess-io doctor)": "no se encontró llama-server (ver chess-io doctor)",
     "Per i commenti LLM serve il modello Qwen3 1.7B ({size:.1f} GB), da scaricare una volta sola da Hugging Face. Scaricarlo ora?":
         "Los comentarios LLM necesitan el modelo Qwen3 1.7B ({size:.1f} GB), que se descarga una sola vez de Hugging Face. ¿Descargarlo ahora?",
     "modello non scaricato": "modelo no descargado",
@@ -346,7 +346,7 @@ T = {
     "Invio per cercare le ultime 50 partite.": "Intro para buscar las últimas 50 partidas.",
     "Stockfish sta analizzando le posizioni… {done}/{total}": "Stockfish está analizando las posiciones… {done}/{total}",
     "Rating stimato": "Rating estimado",
-    "chess-me · cerca le partite di un utente": "chess-me · busca las partidas de un usuario",
+    "chess-io · cerca le partite di un utente": "chess-io · busca las partidas de un usuario",
     "Lingua di interfaccia e commenti (F2 per cambiarla)": "Idioma de la interfaz y de los comentarios (F2 para cambiarlo)",
     "Com'è andata": "Cómo fue",
     "Consigli": "Consejos",

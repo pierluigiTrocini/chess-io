@@ -4,8 +4,8 @@ import chess
 import httpx
 import pytest
 
-from chess_me import pgn as pgn_parse, sources
-from chess_me.pgn import parse_many, parse_time_control
+from chess_io import pgn as pgn_parse, sources
+from chess_io.pgn import parse_many, parse_time_control
 
 LICHESS_PGN = """[Event "Rated Blitz game"]
 [Site "https://lichess.org/AbCdEfGh"]

@@ -3,7 +3,7 @@ requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "chess-me"
+name = "chess-io"
 dynamic = ["version"]
 description = "Revisione delle partite a scacchi nel terminale: Stockfish, mosse classificate, commenti e riassunto in italiano"
 readme = "README.md"
@@ -20,17 +20,17 @@ dev = ["pytest>=8,<9"]
 bundle = ["pyinstaller>=6,<7"]
 
 [project.scripts]
-chess-me = "chess_me.cli:main"
+chess-io = "chess_io.cli:main"
 
 [tool.setuptools.dynamic]
-version = { attr = "chess_me.__version__" }
+version = { attr = "chess_io.__version__" }
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-# openings.sqlite c'è solo se generato prima del build (packaging/wheel.sh); altrimenti lo scarica `chess-me setup`
-chess_me = ["data/*.toml", "data/*.sqlite"]
+# openings.sqlite c'è solo se generato prima del build (packaging/wheel.sh); altrimenti lo scarica `chess-io setup`
+chess_io = ["data/*.toml", "data/*.sqlite"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

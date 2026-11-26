@@ -1,5 +1,5 @@
-"""`chess-me setup`: scarica e verifica (SHA256) Stockfish, llama-server e il database delle aperture in
-~/.local/share/chess-me, per chi installa con pip/pipx invece di usare la cartella self-contained.
+"""`chess-io setup`: scarica e verifica (SHA256) Stockfish, llama-server e il database delle aperture in
+~/.local/share/chess-io, per chi installa con pip/pipx invece di usare la cartella self-contained.
 Gli URL e gli hash sono in data/binaries.toml."""
 import hashlib
 import platform
@@ -43,7 +43,7 @@ def download(url: str, dest: Path, sha256: str | None, label: str, echo=print) -
     part = dest.with_name(dest.name + ".part")
     try:
         with httpx.stream("GET", url, follow_redirects=True, timeout=httpx.Timeout(60, read=120),
-                          headers={"User-Agent": "chess-me-cli"}) as r:
+                          headers={"User-Agent": "chess-io-cli"}) as r:
             r.raise_for_status()
             total = int(r.headers.get("content-length") or 0)
             done, last = 0, -1
@@ -85,7 +85,7 @@ def install_stockfish(echo=print) -> Path:
         raise SetupError(tr("nessun Stockfish precompilato per {platform}: installalo e mettilo nel PATH", platform=platform_key()))
     home = runtime.data_home()
     (home / "bin").mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(prefix="chess-me-dl-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="chess-io-dl-") as tmp:
         tmp = Path(tmp)
         arc = download(e["url"], tmp / "stockfish.tar", e["sha256"], "Stockfish", echo)
         _extract(arc, tmp / "x")
@@ -103,7 +103,7 @@ def install_llama(echo=print) -> Path:
     if e is None:
         raise SetupError(tr("nessun llama-server precompilato per {platform}: installalo e mettilo nel PATH", platform=platform_key()))
     home = runtime.data_home()
-    with tempfile.TemporaryDirectory(prefix="chess-me-dl-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="chess-io-dl-") as tmp:
         tmp = Path(tmp)
         arc = download(e["url"], tmp / "llama.tar.gz", e["sha256"], "llama-server", echo)
         _extract(arc, tmp / "x")

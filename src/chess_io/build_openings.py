@@ -1,7 +1,7 @@
 """Converte i TSV di lichess-org/chess-openings in una tabella SQLite.
 
-    python -m chess_me.build_openings <dest.sqlite>            scarica i TSV e genera il database
-    python -m chess_me.build_openings <cartella-tsv> <dest>    da TSV già scaricati
+    python -m chess_io.build_openings <dest.sqlite>            scarica i TSV e genera il database
+    python -m chess_io.build_openings <cartella-tsv> <dest>    da TSV già scaricati
 
 Per ogni linea si registrano tutte le posizioni intermedie (prefissi): una mossa è "di libro"
 se la posizione risultante compare in una qualsiasi linea. Il nome è quello della linea più
@@ -52,7 +52,7 @@ def download_and_build(dst: str) -> None:
 
     from .downloads import download, manifest
     o = manifest()["openings"]
-    with tempfile.TemporaryDirectory(prefix="chess-me-op-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="chess-io-op-") as tmp:
         for f in o["files"]:
             download(o["base"] + f, Path(tmp) / f, None, f"aperture {f}", lambda *_: None)
         main(tmp, dst)

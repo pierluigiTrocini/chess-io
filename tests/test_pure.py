@@ -1,11 +1,11 @@
 import chess
 
-from chess_me.review.accuracy import estimated_rating, game_accuracy
-from chess_me.explain import motifs
-from chess_me.review.material import describe_points
-from chess_me.review.sacrifice import sacrificed_points
-from chess_me.review.winprob import move_accuracy, win_percent
-from chess_me.review.classify import MoveEval, classify
+from chess_io.review.accuracy import estimated_rating, game_accuracy
+from chess_io.explain import motifs
+from chess_io.review.material import describe_points
+from chess_io.review.sacrifice import sacrificed_points
+from chess_io.review.winprob import move_accuracy, win_percent
+from chess_io.review.classify import MoveEval, classify
 
 
 def test_win_percent_symmetry():
@@ -135,7 +135,7 @@ def _summary_fixture():
 
 
 def test_template_summary_mentions_critical_blunder_and_advice():
-    from chess_me.explain.summary import summary_facts, template_summary
+    from chess_io.explain.summary import summary_facts, template_summary
     game, moves, review = _summary_fixture()
     f = summary_facts(game, moves, review, "abbandono")
     t = template_summary(f)
@@ -153,7 +153,7 @@ def test_template_summary_mentions_critical_blunder_and_advice():
 
 
 def test_template_summary_clean_game():
-    from chess_me.explain.summary import summary_facts, template_summary
+    from chess_io.explain.summary import summary_facts, template_summary
     game, moves, review = _summary_fixture()
     for m in moves:
         m["classification"], m["motifs_json"], m["win_after"] = "best", {}, 50
@@ -165,7 +165,7 @@ def test_template_summary_clean_game():
 
 
 def test_describe_san():
-    from chess_me.explain.describe import describe_san
+    from chess_io.explain.describe import describe_san
     assert describe_san("Nf3") == "il cavallo in f3"
     assert describe_san("Bxf6+") == "l'alfiere che prende in f6"
     assert describe_san("Nbd2") == "il cavallo in d2"
@@ -177,7 +177,7 @@ def test_describe_san():
 
 
 def test_annotate_moves_but_not_variations_or_squares():
-    from chess_me.explain.describe import annotate
+    from chess_io.explain.describe import annotate
     t = annotate("Bf4 è un grave errore: con exf4 cade l'alfiere in f4. Meglio Be3 (12. Be3 Nf6 13. O-O).")
     assert t.startswith("L'alfiere in f4 (Bf4) è un grave errore")
     assert "con il pedone che prende in f4 (exf4)" in t
@@ -187,7 +187,7 @@ def test_annotate_moves_but_not_variations_or_squares():
 
 
 def test_solution_notes():
-    from chess_me.explain.templates import solution_notes
+    from chess_io.explain.templates import solution_notes
     d = {"cls": "mistake", "san": "Bf4", "mover": "white", "best_san": "Be3", "best_line": "12. Be3 Nf6",
          "refutation_line": "12...exf4", "refutation_first": "exf4", "best_fork": ["la torre", "il re"],
          "eval_before": "+0.3", "eval_after": "-1.9"}

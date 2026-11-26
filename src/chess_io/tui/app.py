@@ -12,8 +12,8 @@ from .review import ReviewScreen
 from .screens import AnalysisScreen, ColorScreen, ConfirmScreen, PickScreen, SearchScreen
 
 
-class ChessMeApp(App):
-    TITLE = "chess-me"
+class ChessIoApp(App):
+    TITLE = "chess-io"
     CSS = "Screen { background: #1e1f22; }"
     ENABLE_COMMAND_PALETTE = False
     BINDINGS = [Binding("ctrl+c", "quit", "Esci", show=False, priority=True)]
@@ -67,7 +67,7 @@ class ChessMeApp(App):
     def start(self) -> None:
         c = self.candidate
         self.color = self.color or self.loaded.color_for(c)
-        title = f"chess-me · {c.white}{f' ({c.white_elo})' if c.white_elo else ''} vs " \
+        title = f"chess-io · {c.white}{f' ({c.white_elo})' if c.white_elo else ''} vs " \
                 f"{c.black}{f' ({c.black_elo})' if c.black_elo else ''}"
         self.analysis_screen = AnalysisScreen(title, f"{self.loaded.origin} · " + tr("{n} semimosse", n=c.plies) + " · "
                                               + tr("profondità {depth}", depth=self.depth))
@@ -105,7 +105,7 @@ class ChessMeApp(App):
     def start_llm(self) -> None:
         rv = self.review
         if not llm_jobs.available():
-            rv.llm_status, rv.llm_error = "error", tr("llama-server non trovato (vedi chess-me doctor)")
+            rv.llm_status, rv.llm_error = "error", tr("llama-server non trovato (vedi chess-io doctor)")
             self.review_screen.refresh_llm_status()
             return
         if llm_jobs.model_ready():

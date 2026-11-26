@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-# chess-me: test e bundle self-contained per Linux della CLI.
+# chess-io: test e bundle self-contained per Linux della CLI.
 
 # ---------- 1. Stockfish (compilato dal sorgente) ----------
 FROM debian:bookworm-slim AS stockfish
@@ -42,10 +42,10 @@ ADD https://raw.githubusercontent.com/lichess-org/chess-openings/master/a.tsv \
     https://raw.githubusercontent.com/lichess-org/chess-openings/master/d.tsv \
     https://raw.githubusercontent.com/lichess-org/chess-openings/master/e.tsv \
     /tmp/openings/
-COPY src/chess_me/build_openings.py /tmp/build_openings.py
+COPY src/chess_io/build_openings.py /tmp/build_openings.py
 RUN pip install --no-cache-dir "chess>=1.11,<2" && python /tmp/build_openings.py /tmp/openings /openings.sqlite
 
-# ---------- 4. Test (docker build --target test -t chessme-test . && docker run --rm chessme-test) ----------
+# ---------- 4. Test (docker build --target test -t chessio-test . && docker run --rm chessio-test) ----------
 FROM python:3.12-slim AS test
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 STOCKFISH_PATH=/usr/local/bin/stockfish \
     OPENINGS_DB=/app/openings.sqlite
@@ -66,18 +66,18 @@ COPY pyproject.toml README.md install.sh ./
 COPY src ./src
 RUN pip install --no-cache-dir ".[bundle]"
 COPY packaging packaging
-RUN pyinstaller --noconfirm --clean --distpath /pyi-dist --workpath /tmp/pyi packaging/chess-me.spec
+RUN pyinstaller --noconfirm --clean --distpath /pyi-dist --workpath /tmp/pyi packaging/chess-io.spec
 COPY --from=stockfish /usr/local/bin/stockfish /tmp/stockfish
 COPY --from=llm /out/ /tmp/llm/
 COPY --from=openings /openings.sqlite /tmp/openings.sqlite
-RUN set -eu; B=/bundle/chess-me; mkdir -p /bundle /dist && cp -R /pyi-dist/chess-me $B \
+RUN set -eu; B=/bundle/chess-io; mkdir -p /bundle /dist && cp -R /pyi-dist/chess-io $B \
     && mkdir -p $B/bin $B/share && cp /tmp/stockfish $B/bin/ && cp /tmp/llm/llama-server $B/bin/ \
     && cp /tmp/openings.sqlite $B/share/ && cp install.sh packaging/README.txt $B/ \
-    && V=$(python -c "from chess_me import __version__; print(__version__)") \
-    && echo "$V" > $B/VERSION && $B/chess-me doctor \
+    && V=$(python -c "from chess_io import __version__; print(__version__)") \
+    && echo "$V" > $B/VERSION && $B/chess-io doctor \
     && A=$(uname -m | sed 's/aarch64/arm64/') \
-    && tar -C /bundle -czf /dist/chess-me-$V-linux-$A.tar.gz chess-me \
-    && cd /dist && sha256sum chess-me-$V-linux-$A.tar.gz > chess-me-$V-linux-$A.tar.gz.sha256
+    && tar -C /bundle -czf /dist/chess-io-$V-linux-$A.tar.gz chess-io \
+    && cd /dist && sha256sum chess-io-$V-linux-$A.tar.gz > chess-io-$V-linux-$A.tar.gz.sha256
 
 # l'ultimo stage è il default: docker build --output dist/ . scrive il .tar.gz in dist/
 FROM scratch AS cli-export

@@ -1,7 +1,7 @@
-# Prompts para el LLM local de chess.me — español (con --lang es).
+# Prompts para el LLM local de chess-io — español (con --lang es).
 #
 # Este archivo se puede modificar libremente: se vuelve a leer en cada petición, así que no hace falta reiniciar.
-# Para no tocar el archivo incluido en el paquete, cópialo en ~/.local/share/chess-me/prompts.es.toml:
+# Para no tocar el archivo incluido en el paquete, cópialo en ~/.local/share/chess-io/prompts.es.toml:
 # si esa copia existe, se usa en lugar de este archivo.
 #
 # Sintaxis: TOML. Las cadenas entre """ ... """ pueden ocupar varias líneas; una "\" al final de la línea une la

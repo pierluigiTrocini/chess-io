@@ -1,13 +1,13 @@
-"""Entry point di `chess-me`.
+"""Entry point di `chess-io`.
 
-    chess-me                      schermata di ricerca: piattaforma + nome utente → elenco partite
-    chess-me -l <link>            partita da lichess.org o chess.com
-    chess-me -pgn <file|PGN|->    PGN da file, incollato o da stdin
-    chess-me -u <piattaforma> <utente>   scegli tra le ultime partite di un utente (lichess, chess.com)
-    chess-me doctor               dove sono Stockfish, aperture, llama-server, modello
-    chess-me setup [--llm]        scarica i binari (installazione con pip/pipx)
-    chess-me remove-model         elimina il modello LLM scaricato
-    chess-me lang [it|en|es]      mostra o imposta la lingua predefinita (anche --lang per una sola volta)
+    chess-io                      schermata di ricerca: piattaforma + nome utente → elenco partite
+    chess-io -l <link>            partita da lichess.org o chess.com
+    chess-io -pgn <file|PGN|->    PGN da file, incollato o da stdin
+    chess-io -u <piattaforma> <utente>   scegli tra le ultime partite di un utente (lichess, chess.com)
+    chess-io doctor               dove sono Stockfish, aperture, llama-server, modello
+    chess-io setup [--llm]        scarica i binari (installazione con pip/pipx)
+    chess-io remove-model         elimina il modello LLM scaricato
+    chess-io lang [it|en|es]      mostra o imposta la lingua predefinita (anche --lang per una sola volta)
 """
 import argparse
 import asyncio
@@ -22,11 +22,11 @@ COMMANDS = ("doctor", "setup", "remove-model", "lang")
 
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
-        prog="chess-me",
+        prog="chess-io",
         description=tr("Analizza una partita con Stockfish e la rivedi nel terminale: mosse classificate, "
                        "commenti, varianti migliori e riassunto."),
-        epilog=tr("Senza -l/-pgn/-u si apre la ricerca delle partite di un utente. Altri comandi: chess-me doctor · "
-                  "chess-me setup [--llm] [--yes] · chess-me remove-model · chess-me lang [it|en|es]"),
+        epilog=tr("Senza -l/-pgn/-u si apre la ricerca delle partite di un utente. Altri comandi: chess-io doctor · "
+                  "chess-io setup [--llm] [--yes] · chess-io remove-model · chess-io lang [it|en|es]"),
     )
     src = p.add_mutually_exclusive_group()  # nessuna sorgente = schermata di ricerca
     src.add_argument("-l", "--link", metavar="LINK", help=tr("link a una partita di lichess.org o chess.com"))
@@ -43,21 +43,21 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--llm", action="store_true", help=tr("commenti e riassunto riscritti dall'LLM locale (verificati)"))
     p.add_argument("--lang", choices=i18n.LANGS, default=None,
                    help=tr("lingua di interfaccia e commenti solo per questa volta (default: quella impostata con "
-                           "chess-me lang, ora {lang})", lang=i18n.lang()))
-    p.add_argument("--version", action="version", version=f"chess-me {__version__}")
+                           "chess-io lang, ora {lang})", lang=i18n.lang()))
+    p.add_argument("--version", action="version", version=f"chess-io {__version__}")
     return p
 
 
 def _err(msg: str) -> int:
-    print(f"chess-me: {msg}", file=sys.stderr)
+    print(f"chess-io: {msg}", file=sys.stderr)
     return EXIT_INPUT
 
 
 def _missing(res, llm: bool) -> str | None:
     if res.stockfish is None:
-        return tr("Stockfish non trovato. Esegui 'chess-me setup' oppure installalo nel PATH.")
+        return tr("Stockfish non trovato. Esegui 'chess-io setup' oppure installalo nel PATH.")
     if llm and res.llama_server is None:
-        return tr("llama-server non trovato: esegui 'chess-me setup --llm' oppure avvia senza --llm.")
+        return tr("llama-server non trovato: esegui 'chess-io setup --llm' oppure avvia senza --llm.")
     return None
 
 
@@ -72,7 +72,7 @@ def doctor() -> int:
 
 
 def setup(argv: list[str]) -> int:
-    p = argparse.ArgumentParser(prog="chess-me setup", description=tr(
+    p = argparse.ArgumentParser(prog="chess-io setup", description=tr(
         "Scarica le risorse mancanti in {path} (Stockfish, aperture; con --llm anche llama-server e modello).",
         path=runtime.data_home()))
     p.add_argument("--llm", action="store_true", help=tr("anche llama-server e il modello Qwen3 1.7B (~1,1 GB)"))
@@ -124,8 +124,8 @@ def remove_model() -> int:
 
 
 def lang_cmd(argv: list[str]) -> int:
-    """`chess-me lang` mostra la lingua predefinita, `chess-me lang en` la imposta."""
-    p = argparse.ArgumentParser(prog="chess-me lang", description=tr(
+    """`chess-io lang` mostra la lingua predefinita, `chess-io lang en` la imposta."""
+    p = argparse.ArgumentParser(prog="chess-io lang", description=tr(
         "Mostra o imposta la lingua predefinita di interfaccia e commenti."))
     p.add_argument("code", nargs="?", choices=i18n.LANGS, metavar="it|en|es",
                    help=" · ".join(f"{c} = {i18n.NAMES[c]}" for c in i18n.LANGS))
@@ -166,13 +166,13 @@ def main(argv: list[str] | None = None) -> int:
     # solo ora: config legge le variabili d'ambiente impostate da bootstrap()
     from . import config
     from . import session, sources
-    from .tui.app import ChessMeApp
+    from .tui.app import ChessIoApp
 
     color = None if args.color == "auto" else args.color
     if not (args.link or args.pgn or args.user):   # schermata di ricerca
         if err := _missing(res, args.llm):
             return _err(err)
-        app = ChessMeApp(None, None, color, config.ANALYSIS_DEPTH, args.llm)
+        app = ChessIoApp(None, None, color, config.ANALYSIS_DEPTH, args.llm)
         app.run()
         return app.exit_code
 
@@ -192,7 +192,7 @@ def main(argv: list[str] | None = None) -> int:
         return _err(str(e))
     if err := _missing(res, args.llm):
         return _err(err)
-    app = ChessMeApp(loaded, candidate, color, config.ANALYSIS_DEPTH, args.llm)
+    app = ChessIoApp(loaded, candidate, color, config.ANALYSIS_DEPTH, args.llm)
     app.run()
     return app.exit_code
 

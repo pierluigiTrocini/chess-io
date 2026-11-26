@@ -6,7 +6,7 @@ import httpx
 
 from .i18n import tr
 
-USER_AGENT = "chess-me-cli/1.0"
+USER_AGENT = "chess-io-cli/1.0"
 TIMEOUT = httpx.Timeout(15.0, connect=10.0)
 LICHESS_RESERVED = {"study", "broadcast", "tv", "training", "analysis", "editor", "games", "api", "team", "tournament",
                     "swiss", "simul", "practice", "learn", "paste", "inbox", "streamer", "video"}

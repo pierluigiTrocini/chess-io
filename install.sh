@@ -1,23 +1,23 @@
 #!/usr/bin/env bash
-# Installer interattivo di chess-me.
+# Installer interattivo di chess-io.
 #
 #   ./install.sh                  menu interattivo (↑/↓, Spazio, Invio, Esc): scegli cosa installare e scaricare
-#   ./install.sh --yes            senza domande: chess-me + Stockfish + aperture (con --llm anche l'LLM)
+#   ./install.sh --yes            senza domande: chess-io + Stockfish + aperture (con --llm anche l'LLM)
 #   ./install.sh --llm            preseleziona llama-server e il modello LLM (~1,1 GB)
 #   ./install.sh --from <spec>    cosa installare: cartella, .whl, git+https://… (default: questa cartella)
 #   ./install.sh --pipx | --pip   forza il metodo (pip = venv dedicato)
 #   ./install.sh --no-setup       non scaricare nulla oltre al programma (es. Stockfish già nel PATH)
-#   ./install.sh --prefix DIR     dove installare (bundle: ~/.local/share/chess-me/app, pip: …/venv)
-#   ./install.sh --bin-dir DIR    dove mettere il comando chess-me (default ~/.local/bin)
+#   ./install.sh --prefix DIR     dove installare (bundle: ~/.local/share/chess-io/app, pip: …/venv)
+#   ./install.sh --bin-dir DIR    dove mettere il comando chess-io (default ~/.local/bin)
 #   ./install.sh --uninstall [--purge]   --purge elimina anche binari, modello LLM e dati scaricati
-#   ./install.sh --lang it|en|es  lingua predefinita di chess-me (e dell'installer); nel menu è la prima scelta
+#   ./install.sh --lang it|en|es  lingua predefinita di chess-io (e dell'installer); nel menu è la prima scelta
 #
-# Variabili: PYTHON (interprete >= 3.12 da usare), CHESSME_HOME (cartella dei dati, default ~/.local/share/chess-me).
+# Variabili: PYTHON (interprete >= 3.12 da usare), CHESSIO_HOME (cartella dei dati, default ~/.local/share/chess-io).
 # Funziona con bash 3.2 (macOS) e richiede curl per mostrare l'avanzamento dei download.
 set -eu
 
 # ============================================================ configurazione
-DATA_HOME="${CHESSME_HOME:-${XDG_DATA_HOME:-$HOME/.local/share}/chess-me}"
+DATA_HOME="${CHESSIO_HOME:-${XDG_DATA_HOME:-$HOME/.local/share}/chess-io}"
 BIN_DIR="$HOME/.local/bin"
 PREFIX=""
 FROM=""
@@ -28,9 +28,9 @@ ASSUME_YES=0
 PRESEL_LLM=0
 NO_SETUP=0
 SRC="$(cd "$(dirname "$0")" && pwd)"
-MARK=".chess-me-venv"
+MARK=".chess-io-venv"
 MODEL_FILE="Qwen3-1.7B-Q4_K_M.gguf"
-# valori di riserva (la fonte è chess_me/llm/server.py, letta dal pacchetto installato quando possibile)
+# valori di riserva (la fonte è chess_io/llm/server.py, letta dal pacchetto installato quando possibile)
 MODEL_URL="https://huggingface.co/unsloth/Qwen3-1.7B-GGUF/resolve/main/$MODEL_FILE"
 MODEL_SHA256="b139949c5bd74937ad8ed8c8cf3d9ffb1e99c866c823204dc42c0d91fa181897"
 MODEL_SIZE=1107409472
@@ -64,7 +64,7 @@ if [ -n "$UI_LANG" ]; then
   lang_ok "$UI_LANG" || { printf 'install.sh: --lang it|en|es\n' >&2; exit 1; }
   LANG_CHOSEN=1
 else
-  # impostazione salvata da chess-me (settings.json), altrimenti il locale del sistema
+  # impostazione salvata da chess-io (settings.json), altrimenti il locale del sistema
   UI_LANG="$(sed -n 's/.*"lang": *"\([a-z]*\)".*/\1/p' "$DATA_HOME/settings.json" 2>/dev/null | head -n 1)"
   if ! lang_ok "$UI_LANG"; then
     UI_LANG="$(printf '%s' "${LC_ALL:-${LC_MESSAGES:-${LANG:-}}}" | cut -c1-2 | tr '[:upper:]' '[:lower:]')"
@@ -109,7 +109,7 @@ htime() {  # secondi → "1m 05s"
 
 banner() {
   say ""
-  say "  ${B}${CYN}♞  chess-me${R} ${D}— installer${R}"
+  say "  ${B}${CYN}♞  chess-io${R} ${D}— installer${R}"
   say "  ${D}$(L "revisione delle partite a scacchi nel terminale" "chess game review in the terminal" "revisión de partidas de ajedrez en la terminal")${R}"
   say ""
 }
@@ -149,7 +149,7 @@ key() { printf '%s %s %s %s  ' "$REV" "$1" "$R" "$2"; }
 tui_top() {  # tui_top "titolo" "sottotitolo"
   printf '\033[H'
   row ""
-  row "  ${B}${CYN}♞  chess-me${R} ${D}— installer · $PLAT${R}"
+  row "  ${B}${CYN}♞  chess-io${R} ${D}— installer · $PLAT${R}"
   row ""
   row "  ${B}$1${R}"
   [ -n "$2" ] && row "  ${D}$2${R}"
@@ -217,7 +217,7 @@ menu_select() {
 
 # ============================================================ processi in background, Ctrl-C
 BG_PID=""
-LOG="$(mktemp -t chess-me-install.XXXXXX)"
+LOG="$(mktemp -t chess-io-install.XXXXXX)"
 cleanup() {
   tui_close
   [ -n "$BG_PID" ] && kill "$BG_PID" 2>/dev/null || true
@@ -280,7 +280,7 @@ run() {  # run "etichetta" comando args…
 
 # ============================================================ download con barra di avanzamento
 remote_size() {  # Content-Length dopo i redirect (0 se sconosciuto)
-  curl -sIL --max-time 20 -A chess-me-installer "$1" 2>/dev/null | tr -d '\r' |
+  curl -sIL --max-time 20 -A chess-io-installer "$1" 2>/dev/null | tr -d '\r' |
     awk 'tolower($1)=="content-length:"{n=$2} END{print n+0}'
 }
 
@@ -319,7 +319,7 @@ fetch() {
   if [ "$total" -gt 0 ] && [ "$start" -ge "$total" ]; then rm -f "$part"; start=0; fi
   [ "$start" -gt 0 ] && info "$(L "riprendo il download da" "resuming the download from" "reanudo la descarga desde") $(hsize "$start")"
   t0=$(date +%s)
-  curl -fsSL --retry 3 --retry-delay 2 -A chess-me-installer -C - -o "$part" "$url" 2>>"$LOG" &
+  curl -fsSL --retry 3 --retry-delay 2 -A chess-io-installer -C - -o "$part" "$url" 2>>"$LOG" &
   BG_PID=$!
   [ -t 1 ] && tput civis 2>/dev/null || true
   while kill -0 "$BG_PID" 2>/dev/null; do
@@ -357,7 +357,7 @@ PLAT="$OS-$ARCH"
 case "$PLAT" in darwin-arm64|linux-x86_64) PREBUILT=1 ;; *) PREBUILT=0 ;; esac
 
 BUNDLE=0
-if [ -z "$FROM" ] && [ -x "$SRC/chess-me" ] && [ -f "$SRC/VERSION" ]; then BUNDLE=1; fi
+if [ -z "$FROM" ] && [ -x "$SRC/chess-io" ] && [ -f "$SRC/VERSION" ]; then BUNDLE=1; fi
 
 find_python() {
   local c
@@ -368,11 +368,11 @@ find_python() {
   done
   return 1
 }
-pipx_has_chessme() { has pipx && pipx list --short 2>/dev/null | grep -q '^chess-me '; }
+pipx_has_chessio() { has pipx && pipx list --short 2>/dev/null | grep -q '^chess-io '; }
 
 existing_cmd() {
-  if [ -x "$BIN_DIR/chess-me" ]; then echo "$BIN_DIR/chess-me"; return; fi
-  if has chess-me; then command -v chess-me; return; fi
+  if [ -x "$BIN_DIR/chess-io" ]; then echo "$BIN_DIR/chess-io"; return; fi
+  if has chess-io; then command -v chess-io; return; fi
   echo ""
 }
 
@@ -390,7 +390,7 @@ scan_resources() {
   [ -z "$ST_SF" ] && [ -x "$DATA_HOME/bin/stockfish" ] && ST_SF="$DATA_HOME/bin/stockfish"
   [ -z "$ST_SF" ] && has stockfish && ST_SF="$(command -v stockfish) ($(L "di sistema" "system" "del sistema"))"
   [ -z "$ST_OP" ] && [ -f "$DATA_HOME/openings.sqlite" ] && ST_OP="$DATA_HOME/openings.sqlite"
-  [ -z "$ST_OP" ] && [ "$FROM" = "$SRC" ] && [ -f "$SRC/src/chess_me/data/openings.sqlite" ] && ST_OP="($(L "nel pacchetto Python" "in the Python package" "en el paquete Python"))"
+  [ -z "$ST_OP" ] && [ "$FROM" = "$SRC" ] && [ -f "$SRC/src/chess_io/data/openings.sqlite" ] && ST_OP="($(L "nel pacchetto Python" "in the Python package" "en el paquete Python"))"
   [ -z "$ST_LL" ] && [ -x "$DATA_HOME/bin/llama/llama-server" ] && ST_LL="$DATA_HOME/bin/llama/llama-server"
   [ -z "$ST_LL" ] && has llama-server && ST_LL="$(command -v llama-server) ($(L "di sistema" "system" "del sistema"))"
   [ -f "$DATA_HOME/models/$MODEL_FILE" ] && ST_MD="$DATA_HOME/models/$MODEL_FILE"
@@ -399,8 +399,8 @@ scan_resources() {
 
 # ============================================================ disinstallazione
 uninstall_found() {
-  [ -L "$BIN_DIR/chess-me" ] && return 0
-  pipx_has_chessme && return 0
+  [ -L "$BIN_DIR/chess-io" ] && return 0
+  pipx_has_chessio && return 0
   local d
   for d in "${PREFIX:-$DATA_HOME/app}" "${PREFIX:-$DATA_HOME/venv}"; do
     if [ -f "$d/VERSION" ] || [ -f "$d/$MARK" ]; then return 0; fi
@@ -411,12 +411,12 @@ uninstall_found() {
 uninstall_run() {  # uninstall_run 0|1 (1 = elimina anche i dati)
   local purge="$1" d
   section "$(L Disinstallazione Uninstall Desinstalación)"
-  if ! uninstall_found && [ ! -d "$DATA_HOME" ]; then say "  $(L "chess-me non risulta installato." "chess-me does not seem to be installed." "chess-me no parece estar instalado.")"; return 0; fi
+  if ! uninstall_found && [ ! -d "$DATA_HOME" ]; then say "  $(L "chess-io non risulta installato." "chess-io does not seem to be installed." "chess-io no parece estar instalado.")"; return 0; fi
   STEP_TOT=2; [ "$purge" = 1 ] && STEP_TOT=3
-  step "$(L "Comando chess-me" "chess-me command" "Comando chess-me")"
-  if [ -L "$BIN_DIR/chess-me" ]; then rm "$BIN_DIR/chess-me"; ok "$(L rimosso removed eliminado) $BIN_DIR/chess-me"; else info "$(L "nessun collegamento in" "no link in" "ningún enlace en") $BIN_DIR"; fi
+  step "$(L "Comando chess-io" "chess-io command" "Comando chess-io")"
+  if [ -L "$BIN_DIR/chess-io" ]; then rm "$BIN_DIR/chess-io"; ok "$(L rimosso removed eliminado) $BIN_DIR/chess-io"; else info "$(L "nessun collegamento in" "no link in" "ningún enlace en") $BIN_DIR"; fi
   step "$(L Programma Program Programa)"
-  if pipx_has_chessme; then run "pipx uninstall chess-me" pipx uninstall chess-me; fi
+  if pipx_has_chessio; then run "pipx uninstall chess-io" pipx uninstall chess-io; fi
   for d in "${PREFIX:-$DATA_HOME/app}" "${PREFIX:-$DATA_HOME/venv}"; do
     if [ -f "$d/VERSION" ] || [ -f "$d/$MARK" ]; then run "$(L elimino deleting elimino) $d" rm -rf "$d"; fi
   done
@@ -425,7 +425,7 @@ uninstall_run() {  # uninstall_run 0|1 (1 = elimina anche i dati)
     if [ -d "$DATA_HOME" ]; then run "$(L elimino deleting elimino) $DATA_HOME" rm -rf "$DATA_HOME"; fi
   fi
   say ""
-  say "  ${GRN}${B}$(L "chess-me disinstallato." "chess-me uninstalled." "chess-me desinstalado.")${R}"
+  say "  ${GRN}${B}$(L "chess-io disinstallato." "chess-io uninstalled." "chess-io desinstalado.")${R}"
 }
 
 # ============================================================ stato iniziale
@@ -502,7 +502,7 @@ item_short() {
 }
 item_details() {
   case "$1" in
-    0) row "  $(L "Il motore che analizza le partite: senza Stockfish chess-me non funziona." "The engine that analyses the games: chess-me does not work without Stockfish." "El motor que analiza las partidas: sin Stockfish chess-me no funciona.")"
+    0) row "  $(L "Il motore che analizza le partite: senza Stockfish chess-io non funziona." "The engine that analyses the games: chess-io does not work without Stockfish." "El motor que analiza las partidas: sin Stockfish chess-io no funciona.")"
        row "  $(L Stato Status Estado): $(state "$ST_SF")"
        if [ "$PREBUILT" = 0 ]; then row "  ${YLW}$(L "Nessun binario precompilato per $PLAT: installalo e mettilo nel PATH." "No prebuilt binary for $PLAT: install it and put it on your PATH." "No hay binario precompilado para $PLAT: instálalo y ponlo en el PATH.")${R}"
        else row "  ${D}$(L "Release ufficiale sf_18 da GitHub, verificata con SHA256" "Official sf_18 release from GitHub, verified with SHA256" "Release oficial sf_18 de GitHub, verificada con SHA256") → $(tildify "$DATA_HOME/bin")${R}"; fi ;;
@@ -512,7 +512,7 @@ item_details() {
     2) row "  $(L "Commenti e riassunto riscritti da un LLM locale (Qwen3 1.7B con llama.cpp)." "Comments and summary rewritten by a local LLM (Qwen3 1.7B with llama.cpp)." "Comentarios y resumen reescritos por un LLM local (Qwen3 1.7B con llama.cpp).")"
        row "  llama-server: $(state "$ST_LL")"
        row "  $(L "modello:     " "model:       " "modelo:      ") $(state "$ST_MD")"
-       row "  ${D}$(L "Si usa con chess-me --llm · il modello si elimina con chess-me remove-model" "Used with chess-me --llm · remove the model with chess-me remove-model" "Se usa con chess-me --llm · el modelo se elimina con chess-me remove-model")${R}" ;;
+       row "  ${D}$(L "Si usa con chess-io --llm · il modello si elimina con chess-io remove-model" "Used with chess-io --llm · remove the model with chess-io remove-model" "Se usa con chess-io --llm · el modelo se elimina con chess-io remove-model")${R}" ;;
   esac
 }
 
@@ -534,8 +534,8 @@ choose_components() {  # 0 = continua, 1 = indietro
   tui_open
   while :; do
     tui_top "$(L "Cosa vuoi installare?" "What do you want to install?" "¿Qué quieres instalar?")" "$(L "Spunta i componenti da scaricare; ciò che c'è già non serve riscaricarlo." "Tick the components to download; what is already there need not be downloaded again." "Marca los componentes que descargar; lo que ya está no hace falta volver a descargarlo.")"
-    if [ "$METHOD" = bundle ]; then row "    ${GRN}[✓]${R} chess-me                    ${D}$(L "cartella self-contained, sempre" "self-contained folder, always" "carpeta autocontenida, siempre")${R}"
-    else row "    ${GRN}[✓]${R} chess-me                    ${D}$(L "programma e dipendenze Python, sempre" "program and Python dependencies, always" "programa y dependencias de Python, siempre")${R}"; fi
+    if [ "$METHOD" = bundle ]; then row "    ${GRN}[✓]${R} chess-io                    ${D}$(L "cartella self-contained, sempre" "self-contained folder, always" "carpeta autocontenida, siempre")${R}"
+    else row "    ${GRN}[✓]${R} chess-io                    ${D}$(L "programma e dipendenze Python, sempre" "program and Python dependencies, always" "programa y dependencias de Python, siempre")${R}"; fi
     for ((i = 0; i < n; i++)); do
       if [ "$(item_sel $i)" = 1 ]; then box="${GRN}[x]${R}"; else box="[ ]"; fi
       sz="$(hsize "$(item_size $i)")"
@@ -569,9 +569,9 @@ choose_components() {  # 0 = continua, 1 = indietro
 # ------------------------------------------------------------ riepilogo
 summary_text() {
   case "$METHOD" in
-    bundle) echo "  • chess-me $(L in in en) $(tildify "${PREFIX:-$DATA_HOME/app}"), $(L "comando in" "command in" "comando en") $(tildify "$BIN_DIR")" ;;
-    pipx)   echo "  • chess-me $(L con with con) pipx ($("$PY" --version 2>&1))" ;;
-    pip)    echo "  • chess-me $(L "in un venv" "in a venv" "en un venv"): $(tildify "${PREFIX:-$DATA_HOME/venv}") ($("$PY" --version 2>&1)), $(L "comando in" "command in" "comando en") $(tildify "$BIN_DIR")" ;;
+    bundle) echo "  • chess-io $(L in in en) $(tildify "${PREFIX:-$DATA_HOME/app}"), $(L "comando in" "command in" "comando en") $(tildify "$BIN_DIR")" ;;
+    pipx)   echo "  • chess-io $(L con with con) pipx ($("$PY" --version 2>&1))" ;;
+    pip)    echo "  • chess-io $(L "in un venv" "in a venv" "en un venv"): $(tildify "${PREFIX:-$DATA_HOME/venv}") ($("$PY" --version 2>&1)), $(L "comando in" "command in" "comando en") $(tildify "$BIN_DIR")" ;;
   esac
   echo "  • $(L "lingua predefinita" "default language" "idioma predeterminado"): $(lang_name "$UI_LANG")"
   [ "$SEL_SF" = 1 ] && echo "  • Stockfish → $(tildify "$DATA_HOME/bin")"
@@ -581,12 +581,12 @@ summary_text() {
     [ -z "$ST_MD" ] && echo "  • $(L "modello LLM" "LLM model" "modelo LLM") → $(tildify "$DATA_HOME/models")"
   fi
   if [ "$SEL_SF" = 0 ] && [ -z "$ST_SF" ]; then
-    echo "  ${YLW}! $(L "senza Stockfish chess-me non può analizzare: installalo nel PATH o selezionalo" "without Stockfish chess-me cannot analyse: install it on your PATH or select it" "sin Stockfish chess-me no puede analizar: instálalo en el PATH o selecciónalo")${R}"
+    echo "  ${YLW}! $(L "senza Stockfish chess-io non può analizzare: installalo nel PATH o selezionalo" "without Stockfish chess-io cannot analyse: install it on your PATH or select it" "sin Stockfish chess-io no puede analizar: instálalo en el PATH o selecciónalo")${R}"
   fi
   echo ""
   echo "  Download: ${B}$(hsize "$NEED")${R}${FREE:+   ${D}$(L "spazio libero" "free space" "espacio libre"): $(hsize "$FREE")${R}}"
   if [ "$NEED" -gt 0 ] && ! has curl; then
-    echo "  ${YLW}! $(L "curl non trovato: i download li farà 'chess-me setup' (avanzamento a scatti del 10%)" "curl not found: 'chess-me setup' will do the downloads (progress in 10% steps)" "no se encontró curl: las descargas las hará 'chess-me setup' (avance en pasos del 10%)")${R}"
+    echo "  ${YLW}! $(L "curl non trovato: i download li farà 'chess-io setup' (avanzamento a scatti del 10%)" "curl not found: 'chess-io setup' will do the downloads (progress in 10% steps)" "no se encontró curl: las descargas las hará 'chess-io setup' (avance en pasos del 10%)")${R}"
   fi
 }
 
@@ -620,7 +620,7 @@ if [ "$INTERACTIVE" = 1 ]; then
       lang)
         case "$UI_LANG" in en) cur=2 ;; es) cur=3 ;; *) cur=1 ;; esac
         menu_select "Lingua · Language · Idioma" \
-          "$(L "Lingua predefinita di chess-me (interfaccia e commenti); si cambia con chess-me lang" "Default chess-me language (interface and comments); change it with chess-me lang" "Idioma predeterminado de chess-me (interfaz y comentarios); se cambia con chess-me lang")" "$cur" \
+          "$(L "Lingua predefinita di chess-io (interfaccia e commenti); si cambia con chess-io lang" "Default chess-io language (interface and comments); change it with chess-io lang" "Idioma predeterminado de chess-io (interfaz y comentarios); se cambia con chess-io lang")" "$cur" \
           "Italiano|it" "English|en" "Español|es"
         case "$CHOICE" in
           1) UI_LANG=it ;; 2) UI_LANG=en ;; 3) UI_LANG=es ;; *) quit_tui ;;
@@ -628,7 +628,7 @@ if [ "$INTERACTIVE" = 1 ]; then
         scan_resources   # gli stati ("nel bundle", "di sistema") nella nuova lingua
         first_stage ;;
       main)
-        menu_select "$(L "chess-me ${CURV:-?} è già installato" "chess-me ${CURV:-?} is already installed" "chess-me ${CURV:-?} ya está instalado")" "$(tildify "$CUR")" 1 \
+        menu_select "$(L "chess-io ${CURV:-?} è già installato" "chess-io ${CURV:-?} is already installed" "chess-io ${CURV:-?} ya está instalado")" "$(tildify "$CUR")" 1 \
           "$(L "Aggiorna o aggiungi componenti|reinstalla il programma e scegli cosa scaricare" "Update or add components|reinstall the program and choose what to download" "Actualizar o añadir componentes|reinstala el programa y elige qué descargar")" \
           "$(L "Disinstalla|rimuovi il programma, a scelta anche i dati scaricati" "Uninstall|remove the program, optionally also the downloaded data" "Desinstalar|elimina el programa y, si quieres, también los datos descargados")" \
           "$(L "Esci|" "Quit|" "Salir|")"
@@ -642,7 +642,7 @@ if [ "$INTERACTIVE" = 1 ]; then
         if [ -d "$DATA_HOME" ]; then DSZ="$(hsize "$(dir_size "$DATA_HOME")")"; else DSZ="0 B"; fi
         MENU_BODY="  $(L Programma Program Programa): $(tildify "${CUR:-$(L "non trovato" "not found" "no encontrado")}")
   $(L "Dati scaricati" "Downloaded data" "Datos descargados"): $(tildify "$DATA_HOME") ($DSZ)"
-        menu_select "$(L "Disinstalla chess-me" "Uninstall chess-me" "Desinstalar chess-me")" "" $((PURGE + 1)) \
+        menu_select "$(L "Disinstalla chess-io" "Uninstall chess-io" "Desinstalar chess-io")" "" $((PURGE + 1)) \
           "$(L "Solo il programma|i dati scaricati restano" "Program only|the downloaded data stay" "Solo el programa|los datos descargados se quedan") ($DSZ)" \
           "$(L "Programma e dati scaricati|elimina anche Stockfish, llama-server, modello e aperture" "Program and downloaded data|also deletes Stockfish, llama-server, model and openings" "Programa y datos descargados|elimina también Stockfish, llama-server, modelo y aperturas") ($DSZ)" \
           "$(L "Annulla|" "Cancel|" "Cancelar|")"
@@ -717,11 +717,11 @@ path_note() {
 CMD=""
 case "$METHOD" in
   bundle)
-    step "$(L "Installo chess-me (cartella self-contained)" "Installing chess-me (self-contained folder)" "Instalo chess-me (carpeta autocontenida)")"
+    step "$(L "Installo chess-io (cartella self-contained)" "Installing chess-io (self-contained folder)" "Instalo chess-io (carpeta autocontenida)")"
     PREFIX="${PREFIX:-$DATA_HOME/app}"
     if [ "$SRC" != "$PREFIX" ]; then
       if [ -e "$PREFIX" ] && [ ! -f "$PREFIX/VERSION" ]; then
-        die "$PREFIX $(L "esiste e non è un'installazione di chess-me: scegli un altro --prefix" "exists and is not a chess-me installation: choose another --prefix" "existe y no es una instalación de chess-me: elige otro --prefix")"
+        die "$PREFIX $(L "esiste e non è un'installazione di chess-io: scegli un altro --prefix" "exists and is not a chess-io installation: choose another --prefix" "existe y no es una instalación de chess-io: elige otro --prefix")"
       fi
       mkdir -p "$(dirname "$PREFIX")"
       rm -rf "$PREFIX.new"
@@ -735,31 +735,31 @@ case "$METHOD" in
       ok "$(L "quarantena di macOS rimossa" "macOS quarantine removed" "cuarentena de macOS eliminada")"
     fi
     mkdir -p "$BIN_DIR"
-    ln -sf "$PREFIX/chess-me" "$BIN_DIR/chess-me"
-    CMD="$BIN_DIR/chess-me"
+    ln -sf "$PREFIX/chess-io" "$BIN_DIR/chess-io"
+    CMD="$BIN_DIR/chess-io"
     ok "$(L comando command comando): $CMD"
     ;;
   pipx)
-    step "$(L "Installo chess-me con pipx" "Installing chess-me with pipx" "Instalo chess-me con pipx")"
-    run "pipx install chess-me" pipx install --force --python "$PY" "$FROM"
+    step "$(L "Installo chess-io con pipx" "Installing chess-io with pipx" "Instalo chess-io con pipx")"
+    run "pipx install chess-io" pipx install --force --python "$PY" "$FROM"
     PIPX_BIN="$(pipx environment --value PIPX_BIN_DIR 2>/dev/null || echo "$HOME/.local/bin")"
-    CMD="$PIPX_BIN/chess-me"
+    CMD="$PIPX_BIN/chess-io"
     ok "$(L comando command comando): $CMD"
     ;;
   pip)
     VENV="${PREFIX:-$DATA_HOME/venv}"
     if [ -e "$VENV" ] && [ ! -f "$VENV/$MARK" ]; then
-      die "$VENV $(L "esiste e non è un venv di chess-me: scegli un altro --prefix" "exists and is not a chess-me venv: choose another --prefix" "existe y no es un venv de chess-me: elige otro --prefix")"
+      die "$VENV $(L "esiste e non è un venv di chess-io: scegli un altro --prefix" "exists and is not a chess-io venv: choose another --prefix" "existe y no es un venv de chess-io: elige otro --prefix")"
     fi
     step "$(L "Ambiente Python" "Python environment" "Entorno Python")"
     run "$(L "creo il venv in" "creating the venv in" "creo el venv en") $VENV" "$PY" -m venv "$VENV"
     touch "$VENV/$MARK"
     run "$(L "aggiorno pip" "upgrading pip" "actualizo pip")" "$VENV/bin/python" -m pip install --upgrade pip
-    step "$(L "Installo chess-me e le dipendenze" "Installing chess-me and its dependencies" "Instalo chess-me y sus dependencias")"
-    run "pip install chess-me" "$VENV/bin/python" -m pip install --upgrade --progress-bar off "$FROM"
+    step "$(L "Installo chess-io e le dipendenze" "Installing chess-io and its dependencies" "Instalo chess-io y sus dependencias")"
+    run "pip install chess-io" "$VENV/bin/python" -m pip install --upgrade --progress-bar off "$FROM"
     mkdir -p "$BIN_DIR"
-    ln -sf "$VENV/bin/chess-me" "$BIN_DIR/chess-me"
-    CMD="$BIN_DIR/chess-me"
+    ln -sf "$VENV/bin/chess-io" "$BIN_DIR/chess-io"
+    CMD="$BIN_DIR/chess-io"
     ok "$(L comando command comando): $CMD"
     ;;
 esac
@@ -775,9 +775,9 @@ fi
 manifest() {  # manifest stockfish|llama → imposta M_URL M_SHA M_MEMBER
   M_URL=""; M_SHA=""; M_MEMBER=""
   [ -n "$CPY" ] || return 1
-  eval "$(CHESSME_HOME="$DATA_HOME" "$CPY" -I -c '
+  eval "$(CHESSIO_HOME="$DATA_HOME" "$CPY" -I -c '
 import shlex, sys
-from chess_me import downloads
+from chess_io import downloads
 e = downloads.entry(sys.argv[1]) or {}
 for k, v in (("M_URL", "url"), ("M_SHA", "sha256"), ("M_MEMBER", "member")):
     print(k + "=" + shlex.quote(str(e.get(v) or "")))
@@ -788,16 +788,16 @@ for k, v in (("M_URL", "url"), ("M_SHA", "sha256"), ("M_MEMBER", "member")):
 if [ -n "$CPY" ]; then
   eval "$("$CPY" -I -c '
 import shlex
-from chess_me import runtime
+from chess_io import runtime
 runtime.bootstrap()
-from chess_me.llm import server
+from chess_io.llm import server
 print(f"MODEL_URL={shlex.quote(server.MODEL_URL)}")
 print(f"MODEL_SHA256={shlex.quote(server.MODEL_SHA256)}")
 print(f"MODEL_SIZE={server.MODEL_SIZE}")
 ' 2>/dev/null)" || true
 fi
 
-TMPD="$(mktemp -d -t chess-me-dl.XXXXXX)"
+TMPD="$(mktemp -d -t chess-io-dl.XXXXXX)"
 trap 'cleanup; rm -rf "$TMPD"' EXIT
 
 find_member() { find "$1" -type f -name "$2" 2>/dev/null | head -n 1; }
@@ -818,7 +818,7 @@ if [ "$SEL_SF" = 1 ]; then
     chmod +x "$DATA_HOME/bin/stockfish"
     ok "$(L "installato in" "installed in" "instalado en") $DATA_HOME/bin/stockfish"
   else
-    FALLBACK_SETUP=1; info "$(L "lo scarica 'chess-me setup' al passo di verifica" "'chess-me setup' downloads it at the check step" "lo descarga 'chess-me setup' en el paso de verificación")"
+    FALLBACK_SETUP=1; info "$(L "lo scarica 'chess-io setup' al passo di verifica" "'chess-io setup' downloads it at the check step" "lo descarga 'chess-io setup' en el paso de verificación")"
   fi
 fi
 
@@ -828,10 +828,10 @@ if [ "$SEL_OP" = 1 ]; then
   if [ -n "$CPY" ]; then
     mkdir -p "$DATA_HOME"
     run "$(L "scarico i TSV di lichess-org/chess-openings e costruisco il database" "downloading the lichess-org/chess-openings TSV files and building the database" "descargo los TSV de lichess-org/chess-openings y construyo la base de datos")" \
-      env CHESSME_HOME="$DATA_HOME" "$CPY" -I -m chess_me.build_openings "$DATA_HOME/openings.sqlite"
+      env CHESSIO_HOME="$DATA_HOME" "$CPY" -I -m chess_io.build_openings "$DATA_HOME/openings.sqlite"
     ok "$DATA_HOME/openings.sqlite ($(hsize "$(dir_size "$DATA_HOME/openings.sqlite")"))"
   else
-    FALLBACK_SETUP=1; info "$(L "lo prepara 'chess-me setup' al passo di verifica" "'chess-me setup' builds it at the check step" "lo prepara 'chess-me setup' en el paso de verificación")"
+    FALLBACK_SETUP=1; info "$(L "lo prepara 'chess-io setup' al passo di verifica" "'chess-io setup' builds it at the check step" "lo prepara 'chess-io setup' en el paso de verificación")"
   fi
 fi
 
@@ -851,7 +851,7 @@ if [ "$SEL_LLM" = 1 ] && [ -z "$ST_LL" ]; then
     [ "$OS" = darwin ] && xattr -dr com.apple.quarantine "$DATA_HOME/bin/llama" 2>/dev/null || true
     ok "$(L "installato in" "installed in" "instalado en") $DATA_HOME/bin/llama"
   else
-    FALLBACK_SETUP=1; info "$(L "lo scarica 'chess-me setup --llm' al passo di verifica" "'chess-me setup --llm' downloads it at the check step" "lo descarga 'chess-me setup --llm' en el paso de verificación")"
+    FALLBACK_SETUP=1; info "$(L "lo scarica 'chess-io setup --llm' al passo di verifica" "'chess-io setup --llm' downloads it at the check step" "lo descarga 'chess-io setup --llm' en el paso de verificación")"
   fi
 fi
 
@@ -860,16 +860,16 @@ if [ "$SEL_LLM" = 1 ] && [ -z "$ST_MD" ]; then
   step "$(L "Modello LLM" "LLM model" "Modelo LLM") (Qwen3 1.7B, $(hsize "$MODEL_SIZE"))"
   if [ "$USE_CURL" = 1 ]; then
     fetch "$MODEL_URL" "$DATA_HOME/models/$MODEL_FILE" "$MODEL_SHA256" "$(L modello model modelo)" "$MODEL_SIZE"
-    info "$(L "eliminabile in seguito con: chess-me remove-model" "can be removed later with: chess-me remove-model" "se puede eliminar después con: chess-me remove-model")"
+    info "$(L "eliminabile in seguito con: chess-io remove-model" "can be removed later with: chess-io remove-model" "se puede eliminar después con: chess-io remove-model")"
   else
-    FALLBACK_SETUP=1; info "$(L "lo scarica 'chess-me setup --llm' al passo di verifica" "'chess-me setup --llm' downloads it at the check step" "lo descarga 'chess-me setup --llm' en el paso de verificación")"
+    FALLBACK_SETUP=1; info "$(L "lo scarica 'chess-io setup --llm' al passo di verifica" "'chess-io setup --llm' downloads it at the check step" "lo descarga 'chess-io setup --llm' en el paso de verificación")"
   fi
 fi
 
 # ============================================================ verifica finale
 step "$(L Verifica Check Verificación)"
 if "$CMD" lang "$UI_LANG" >/dev/null 2>&1; then ok "$(L "lingua predefinita" "default language" "idioma predeterminado"): $(lang_name "$UI_LANG")"
-else warn "$(L "lingua non salvata: usa chess-me lang" "language not saved: use chess-me lang" "idioma no guardado: usa chess-me lang") $UI_LANG"; fi
+else warn "$(L "lingua non salvata: usa chess-io lang" "language not saved: use chess-io lang" "idioma no guardado: usa chess-io lang") $UI_LANG"; fi
 if [ "$FALLBACK_SETUP" = 1 ]; then
   if [ "$SEL_LLM" = 1 ]; then "$CMD" setup --llm --yes || true; else "$CMD" setup --yes || true; fi
 fi
@@ -880,12 +880,12 @@ printf '%s\n' "$DOC_OUT" | sed 's/^/  /'
 say ""
 VER="$("$CMD" --version 2>/dev/null | cut -d' ' -f2 || echo ?)"
 w=$(( $(cols) - 22 )); [ "$w" -gt 30 ] && w=30
-say "${B}${BLU}[$STEP_TOT/$STEP_TOT]${R} ${GRN}${B}chess-me $VER $(L installato installed instalado)${R}   ${D}$(L totale total total) $(printf '%*s' "$w" '' | tr ' ' '#') 100% · $(htime $(( $(date +%s) - T_START )))${R}"
+say "${B}${BLU}[$STEP_TOT/$STEP_TOT]${R} ${GRN}${B}chess-io $VER $(L installato installed instalado)${R}   ${D}$(L totale total total) $(printf '%*s' "$w" '' | tr ' ' '#') 100% · $(htime $(( $(date +%s) - T_START )))${R}"
 case "$METHOD" in pipx) path_note "${PIPX_BIN:-$HOME/.local/bin}" ;; *) path_note "$BIN_DIR" ;; esac
 [ "$DOC_RC" = 0 ] || warn "$(L "qualche risorsa manca: rilancia ./install.sh per aggiungerla" "some resources are missing: run ./install.sh again to add them" "faltan algunos recursos: vuelve a ejecutar ./install.sh para añadirlos")"
 say ""
-say "  $(L "Prova: " "Try:   " "Prueba:") ${B}chess-me -l https://lichess.org/<$(L id-partita game-id id-partida)>${R}"
-say "          ${B}chess-me -u lichess <$(L utente user usuario)>${R}"
-[ "$SEL_LLM" = 1 ] && say "          ${B}chess-me -pgn $(L partita game partida).pgn --llm${R}"
-say "          ${B}chess-me lang it|en|es${R}   ${D}$(L "per cambiare lingua" "to change language" "para cambiar de idioma")${R}"
+say "  $(L "Prova: " "Try:   " "Prueba:") ${B}chess-io -l https://lichess.org/<$(L id-partita game-id id-partida)>${R}"
+say "          ${B}chess-io -u lichess <$(L utente user usuario)>${R}"
+[ "$SEL_LLM" = 1 ] && say "          ${B}chess-io -pgn $(L partita game partida).pgn --llm${R}"
+say "          ${B}chess-io lang it|en|es${R}   ${D}$(L "per cambiare lingua" "to change language" "para cambiar de idioma")${R}"
 say ""

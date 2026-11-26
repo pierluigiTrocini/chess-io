@@ -1,4 +1,4 @@
-"""CLI chess-me: argomenti, input PGN, risorse, manifest dei binari, TUI (con una revisione sintetica)."""
+"""CLI chess-io: argomenti, input PGN, risorse, manifest dei binari, TUI (con una revisione sintetica)."""
 import asyncio
 import io
 import os
@@ -11,8 +11,8 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent))
 from cli_fixtures import PGN, fake_review  # noqa: E402
 
-from chess_me import config  # noqa: E402
-from chess_me import cli as cli_main, downloads as install, runtime, session  # noqa: E402
+from chess_io import config  # noqa: E402
+from chess_io import cli as cli_main, downloads as install, runtime, session  # noqa: E402
 
 textual = pytest.importorskip("textual")
 
@@ -93,7 +93,7 @@ def test_resolve_prefers_user_data(tmp_path, monkeypatch):
     sf = home / "bin" / "stockfish"
     sf.write_text("#!/bin/sh\n")
     (home / "openings.sqlite").write_text("")
-    monkeypatch.setenv("CHESSME_HOME", str(home))
+    monkeypatch.setenv("CHESSIO_HOME", str(home))
     for k in ("STOCKFISH_PATH", "OPENINGS_DB", "LLM_SERVER_PATH", "LLM_MODEL_PATH"):
         monkeypatch.delenv(k, raising=False)
     monkeypatch.setattr(runtime, "package_data", lambda: tmp_path / "nopkg")
@@ -154,15 +154,15 @@ def test_merge_builds_review_and_summary():
 
 # ---------- TUI ----------
 def _app(rv, c):
-    from chess_me.tui.app import ChessMeApp
-    return ChessMeApp(session.Loaded([c], None, "test.pgn"), c, "white", 16, False, review=rv)
+    from chess_io.tui.app import ChessIoApp
+    return ChessIoApp(session.Loaded([c], None, "test.pgn"), c, "white", 16, False, review=rv)
 
 
 def test_tui_navigation_variation_and_summary():
-    from chess_me.tui.board import BoardView
-    from chess_me.tui.panels import CommentPanel
-    from chess_me.tui.review import ReviewScreen
-    from chess_me.tui.screens import SummaryScreen
+    from chess_io.tui.board import BoardView
+    from chess_io.tui.panels import CommentPanel
+    from chess_io.tui.review import ReviewScreen
+    from chess_io.tui.screens import SummaryScreen
 
     async def run():
         rv, c = fake_review()
@@ -201,9 +201,9 @@ def test_tui_navigation_variation_and_summary():
 
 def test_tui_search_screen_to_game_list(monkeypatch, tmp_path):
     from textual.widgets import Input
-    from chess_me import pgn as pgn_parse
-    from chess_me.tui.app import ChessMeApp
-    from chess_me.tui.screens import PickScreen, SearchScreen
+    from chess_io import pgn as pgn_parse
+    from chess_io.tui.app import ChessIoApp
+    from chess_io.tui.screens import PickScreen, SearchScreen
 
     calls = []
 
@@ -213,10 +213,10 @@ def test_tui_search_screen_to_game_list(monkeypatch, tmp_path):
             raise session.InputError("Lichess, utente nessuno: non trovato")
         return session.Loaded(pgn_parse.parse_many(PGN + "\n" + PGN), None, "Lichess · Tu", "Tu")
     monkeypatch.setattr(session, "load", fake_load)
-    monkeypatch.setenv("CHESSME_HOME", str(tmp_path))
+    monkeypatch.setenv("CHESSIO_HOME", str(tmp_path))
 
     async def run():
-        app = ChessMeApp(None, None, None, 16, False)
+        app = ChessIoApp(None, None, None, 16, False)
         async with app.run_test(size=(120, 34)) as pilot:
             await pilot.pause()
             scr = app.screen
@@ -243,12 +243,12 @@ def test_tui_search_screen_to_game_list(monkeypatch, tmp_path):
 
 def test_tui_search_screen_prefills_last_search(monkeypatch, tmp_path):
     from textual.widgets import Input, RadioSet
-    from chess_me.tui.app import ChessMeApp
-    monkeypatch.setenv("CHESSME_HOME", str(tmp_path))
+    from chess_io.tui.app import ChessIoApp
+    monkeypatch.setenv("CHESSIO_HOME", str(tmp_path))
     runtime.save_last_search("chesscom", "Hikaru")
 
     async def run():
-        app = ChessMeApp(None, None, None, 16, False)
+        app = ChessIoApp(None, None, None, 16, False)
         async with app.run_test(size=(120, 34)) as pilot:
             await pilot.pause()
             scr = app.screen
@@ -259,7 +259,7 @@ def test_tui_search_screen_prefills_last_search(monkeypatch, tmp_path):
 
 
 def test_last_search_corrupt_file_is_ignored(monkeypatch, tmp_path):
-    monkeypatch.setenv("CHESSME_HOME", str(tmp_path))
+    monkeypatch.setenv("CHESSIO_HOME", str(tmp_path))
     (tmp_path / runtime.LAST_SEARCH_FILE).write_text("{non json")
     assert runtime.load_last_search() is None
 
@@ -285,7 +285,7 @@ def test_tui_autoplay_stops_on_salient_move():
 # ---------- analisi vera (serve Stockfish) ----------
 @pytest.mark.skipif(shutil.which(config.STOCKFISH_PATH) is None, reason="stockfish non disponibile")
 def test_analyse_real_game_in_memory():
-    from chess_me.engine import analysis_engine
+    from chess_io.engine import analysis_engine
 
     async def run():
         loaded = await session.load(pgn=PGN)
@@ -305,7 +305,7 @@ def test_analyse_real_game_in_memory():
 
 
 def test_board_fit_and_contrast():
-    from chess_me.tui import board, theme
+    from chess_io.tui import board, theme
     assert board.fit_cell(150 - 52, 29) == (7, 3) and board.fit_cell(40, 30) == (3, 1)
     assert theme.ink(theme.LAST_LIGHT) == "#111111" and theme.ink("#3a2020") == "#ffffff"
     assert theme.contrast("#ffffff", "#000000") > 20

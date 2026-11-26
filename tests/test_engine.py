@@ -5,14 +5,14 @@ import shutil
 import chess
 import pytest
 
-from chess_me import config
+from chess_io import config
 
 pytestmark = pytest.mark.skipif(shutil.which(config.STOCKFISH_PATH) is None, reason="stockfish non disponibile")
 
 
 def _analyse(moves):
-    from chess_me.review.analyzer import analyse_game
-    from chess_me.engine import analysis_engine
+    from chess_io.review.analyzer import analyse_game
+    from chess_io.engine import analysis_engine
 
     async def run():
         try:
@@ -65,8 +65,8 @@ FOOLS_MATE = """[Event "Test"]
 
 
 def test_full_game_in_memory():
-    from chess_me import session
-    from chess_me.engine import analysis_engine
+    from chess_io import session
+    from chess_io.engine import analysis_engine
 
     async def run():
         loaded = await session.load(pgn=FOOLS_MATE)
@@ -85,8 +85,8 @@ def test_full_game_in_memory():
 
 
 def test_engine_closes():
-    from chess_me.engine import analysis_engine
-    from chess_me.review.analyzer import analyse_position
+    from chess_io.engine import analysis_engine
+    from chess_io.review.analyzer import analyse_position
 
     async def run():
         await analyse_position(chess.Board(), 6)

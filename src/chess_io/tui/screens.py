@@ -42,7 +42,7 @@ ModalScreen { align: center middle; }
 
 
 class SearchScreen(Screen):
-    """`chess-me` senza opzioni: lingua, piattaforma + nome utente → elenco delle ultime partite."""
+    """`chess-io` senza opzioni: lingua, piattaforma + nome utente → elenco delle ultime partite."""
     DEFAULT_CSS = """
     SearchScreen { align: center middle; }
     #box { width: 64; height: auto; padding: 1 2; border: round #5b8bb0; }
@@ -93,7 +93,7 @@ class SearchScreen(Screen):
 
     def relabel(self) -> None:
         """Testi della schermata nella lingua corrente."""
-        self.query_one("#title", Static).update(Text(tr("chess-me · cerca le partite di un utente"), Style(bold=True)))
+        self.query_one("#title", Static).update(Text(tr("chess-io · cerca le partite di un utente"), Style(bold=True)))
         self.query_one("#langlabel", Static).update(Text(tr("Lingua di interfaccia e commenti (F2 per cambiarla)"),
                                                          Style(color=theme.MUTED)))
         self.query_one("#username", Input).placeholder = tr("nome utente")

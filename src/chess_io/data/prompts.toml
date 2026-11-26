@@ -1,7 +1,7 @@
-# Prompt per l'LLM locale di chess.me.
+# Prompt per l'LLM locale di chess-io.
 #
 # Il file si può modificare liberamente: viene riletto a ogni richiesta, quindi non serve riavviare.
-# Per non toccare il file incluso nel pacchetto, copialo in ~/.local/share/chess-me/prompts.toml:
+# Per non toccare il file incluso nel pacchetto, copialo in ~/.local/share/chess-io/prompts.toml:
 # se quella copia esiste, viene usata al posto di questo file.
 #
 # Sintassi: TOML. Le stringhe tra """ ... """ possono andare a capo; un "\" a fine riga unisce la riga

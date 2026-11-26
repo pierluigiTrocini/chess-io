@@ -5,4 +5,4 @@
 .pytest_cache
 build
 dist
-src/chess_me/data/openings.sqlite
+src/chess_io/data/openings.sqlite

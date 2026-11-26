@@ -54,7 +54,7 @@ def fake_analysis() -> dict:
 
 
 def fake_review(color: str = "white"):
-    from chess_me import session
-    from chess_me import pgn as pgn_parse
+    from chess_io import session
+    from chess_io import pgn as pgn_parse
     c = pgn_parse.parse_one(PGN)
     return session.merge(c, color, fake_analysis()), c

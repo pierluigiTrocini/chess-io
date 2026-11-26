@@ -5,5 +5,5 @@ __pycache__/
 .pytest_cache/
 build/
 dist/
-# generato da packaging/wheel.sh (incluso nella wheel) o da `python -m chess_me.build_openings`
-src/chess_me/data/openings.sqlite
+# generato da packaging/wheel.sh (incluso nella wheel) o da `python -m chess_io.build_openings`
+src/chess_io/data/openings.sqlite

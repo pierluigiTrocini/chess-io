@@ -1,10 +1,10 @@
 """Dove stanno le risorse della CLI (Stockfish, llama-server, aperture, modello) e configurazione dell'ambiente.
 
 È l'unico modulo che conosce i percorsi. Va chiamato `bootstrap()` PRIMA di importare qualunque altro modulo
-`chess_me.*`, perché `chess_me.config` e `chess_me.llm.server` leggono le variabili d'ambiente all'import.
+`chess_io.*`, perché `chess_io.config` e `chess_io.llm.server` leggono le variabili d'ambiente all'import.
 
 Ordine di ricerca: variabile d'ambiente esplicita → cartella del bundle (eseguibile PyInstaller) →
-dati utente (~/.local/share/chess-me) → dati del pacchetto (wheel) → PATH di sistema.
+dati utente (~/.local/share/chess-io) → dati del pacchetto (wheel) → PATH di sistema.
 """
 import atexit
 import os
@@ -24,10 +24,10 @@ _EXE = ".exe" if os.name == "nt" else ""
 
 def data_home() -> Path:
     """Cartella dei dati utente: binari scaricati, modello LLM, prompt personalizzati."""
-    if os.environ.get("CHESSME_HOME"):
-        return Path(os.environ["CHESSME_HOME"]).expanduser()
+    if os.environ.get("CHESSIO_HOME"):
+        return Path(os.environ["CHESSIO_HOME"]).expanduser()
     base = os.environ.get("XDG_DATA_HOME") or str(Path.home() / ".local" / "share")
-    return Path(base).expanduser() / "chess-me"
+    return Path(base).expanduser() / "chess-io"
 
 
 LAST_SEARCH_FILE = "last_search.json"
@@ -106,7 +106,7 @@ class Resources:
         def show(p: Path | None, missing: str) -> tuple[str, bool]:
             return (str(p), True) if p else (missing, False)
         return [
-            ("Stockfish", *show(self.stockfish, tr("non trovato (chess-me setup)"))),
+            ("Stockfish", *show(self.stockfish, tr("non trovato (chess-io setup)"))),
             (tr("Aperture"), *show(self.openings, tr("non trovate: niente riconoscimento della teoria"))),
             ("llama-server", *show(self.llama_server, tr("non trovato: --llm non disponibile"))),
             (tr("Modello LLM"), str(self.model) if self.model.is_file()
@@ -165,9 +165,9 @@ def _free_port() -> int:
 
 
 def bootstrap(depth: int | None = None) -> Resources:
-    """Imposta l'ambiente per i moduli `chess_me.*`. Nessun file persistente: DATA_DIR è temporanea."""
+    """Imposta l'ambiente per i moduli `chess_io.*`. Nessun file persistente: DATA_DIR è temporanea."""
     res = resolve()
-    tmp = Path(tempfile.mkdtemp(prefix="chess-me-"))
+    tmp = Path(tempfile.mkdtemp(prefix="chess-io-"))
     atexit.register(shutil.rmtree, tmp, True)
     for p in res.prompts:
         shutil.copyfile(p, tmp / p.name)  # llm.prompts legge DATA_DIR/prompts*.toml

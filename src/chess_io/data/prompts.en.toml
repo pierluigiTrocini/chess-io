@@ -1,7 +1,7 @@
-# Prompts for chess.me's local LLM — English (with --lang en).
+# Prompts for chess-io's local LLM — English (with --lang en).
 #
 # This file can be edited freely: it is re-read on every request, so no restart is needed.
-# To leave the packaged file untouched, copy it to ~/.local/share/chess-me/prompts.en.toml:
+# To leave the packaged file untouched, copy it to ~/.local/share/chess-io/prompts.en.toml:
 # if that copy exists, it is used instead of this file.
 #
 # Syntax: TOML. Strings between """ ... """ can span lines; a "\" at the end of a line joins the next line

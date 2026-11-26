@@ -4,8 +4,8 @@ I testi nel codice sono in italiano e passano da `tr()`, che li cerca nei catalo
 `locales/es.py` (chiave = testo italiano, oppure "contesto|testo" con `_ctx`). I segnaposto sono quelli di `str.format`: `tr("in {sq}", sq="e4")`.
 Un testo senza traduzione resta in italiano (un test controlla che non ne manchino).
 
-La lingua si sceglie, in ordine: `--lang` → variabile CHESSME_LANG → impostazione salvata
-(`chess-me lang`, installer, schermata di ricerca) → italiano. Va scelta prima dell'analisi: commenti e
+La lingua si sceglie, in ordine: `--lang` → variabile CHESSIO_LANG → impostazione salvata
+(`chess-io lang`, installer, schermata di ricerca) → italiano. Va scelta prima dell'analisi: commenti e
 riassunto si scrivono nella lingua corrente al momento dell'analisi.
 """
 import os
@@ -52,8 +52,8 @@ def save(code: str) -> bool:
 
 
 def resolve(cli: str | None = None) -> str:
-    """Lingua da usare: opzione della CLI, CHESSME_LANG, impostazione salvata, italiano."""
-    return normalize(cli) or normalize(os.environ.get("CHESSME_LANG")) or saved() or DEFAULT
+    """Lingua da usare: opzione della CLI, CHESSIO_LANG, impostazione salvata, italiano."""
+    return normalize(cli) or normalize(os.environ.get("CHESSIO_LANG")) or saved() or DEFAULT
 
 
 def _catalog(code: str) -> dict[str, str]:

@@ -1,4 +1,4 @@
-# Binari ufficiali scaricati da `chess-me setup` quando non c'è il bundle (installazione con pipx).
+# Binari ufficiali scaricati da `chess-io setup` quando non c'è il bundle (installazione con pipx).
 # Ogni archivio è pinnato con SHA256 (digest delle release GitHub): un hash diverso blocca l'installazione.
 # Chiave: "<sistema>-<architettura>" come restituito da platform.system().lower() e platform.machine().lower().
 

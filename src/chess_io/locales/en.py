@@ -1,16 +1,16 @@
 """English catalog: Italian text (as written in the code) → English text. Placeholders must match."""
 T = {
     # ---------- CLI ----------
-    "Stockfish non trovato. Esegui 'chess-me setup' oppure installalo nel PATH.":
-        "Stockfish not found. Run 'chess-me setup' or install it on your PATH.",
-    "llama-server non trovato: esegui 'chess-me setup --llm' oppure avvia senza --llm.":
-        "llama-server not found: run 'chess-me setup --llm' or start without --llm.",
+    "Stockfish non trovato. Esegui 'chess-io setup' oppure installalo nel PATH.":
+        "Stockfish not found. Run 'chess-io setup' or install it on your PATH.",
+    "llama-server non trovato: esegui 'chess-io setup --llm' oppure avvia senza --llm.":
+        "llama-server not found: run 'chess-io setup --llm' or start without --llm.",
     "Da scaricare in {path}: {items}": "To download into {path}: {items}",
     "Lingua predefinita: {name} ({code})": "Default language: {name} ({code})",
     "Analizza una partita con Stockfish e la rivedi nel terminale: mosse classificate, commenti, varianti migliori e riassunto.":
         "Analyse a game with Stockfish and review it in the terminal: classified moves, comments, best lines and summary.",
-    "Senza -l/-pgn/-u si apre la ricerca delle partite di un utente. Altri comandi: chess-me doctor · chess-me setup [--llm] [--yes] · chess-me remove-model · chess-me lang [it|en|es]":
-        "Without -l/-pgn/-u the user game search opens. Other commands: chess-me doctor · chess-me setup [--llm] [--yes] · chess-me remove-model · chess-me lang [it|en|es]",
+    "Senza -l/-pgn/-u si apre la ricerca delle partite di un utente. Altri comandi: chess-io doctor · chess-io setup [--llm] [--yes] · chess-io remove-model · chess-io lang [it|en|es]":
+        "Without -l/-pgn/-u the user game search opens. Other commands: chess-io doctor · chess-io setup [--llm] [--yes] · chess-io remove-model · chess-io lang [it|en|es]",
     "link a una partita di lichess.org o chess.com": "link to a lichess.org or chess.com game",
     "file .pgn, testo PGN tra virgolette, oppure - per leggerlo da stdin":
         ".pgn file, quoted PGN text, or - to read it from stdin",
@@ -23,8 +23,8 @@ T = {
         "if the PGN (or -u) contains several games, analyse the N-th (default: pick on screen)",
     "commenti e riassunto riscritti dall'LLM locale (verificati)":
         "comments and summary rewritten by the local LLM (verified)",
-    "lingua di interfaccia e commenti solo per questa volta (default: quella impostata con chess-me lang, ora {lang})":
-        "interface and comment language for this run only (default: the one set with chess-me lang, now {lang})",
+    "lingua di interfaccia e commenti solo per questa volta (default: quella impostata con chess-io lang, ora {lang})":
+        "interface and comment language for this run only (default: the one set with chess-io lang, now {lang})",
     "Scarica le risorse mancanti in {path} (Stockfish, aperture; con --llm anche llama-server e modello).":
         "Download missing resources into {path} (Stockfish, openings; with --llm also llama-server and the model).",
     "anche llama-server e il modello Qwen3 1.7B (~1,1 GB)": "also llama-server and the Qwen3 1.7B model (~1.1 GB)",
@@ -62,7 +62,7 @@ T = {
     "{path} (si scarica al primo --llm)": "{path} (downloaded on first --llm)",
     "predefiniti": "default",
     "no (Python)": "no (Python)",
-    "non trovato (chess-me setup)": "not found (chess-me setup)",
+    "non trovato (chess-io setup)": "not found (chess-io setup)",
     "non trovate: niente riconoscimento della teoria": "not found: no opening recognition",
     "non trovato: --llm non disponibile": "not found: --llm not available",
 
@@ -302,7 +302,7 @@ T = {
 
     # ---------- TUI ----------
     "profondità {depth}": "depth {depth}",
-    "llama-server non trovato (vedi chess-me doctor)": "llama-server not found (see chess-me doctor)",
+    "llama-server non trovato (vedi chess-io doctor)": "llama-server not found (see chess-io doctor)",
     "Per i commenti LLM serve il modello Qwen3 1.7B ({size:.1f} GB), da scaricare una volta sola da Hugging Face. Scaricarlo ora?":
         "LLM comments need the Qwen3 1.7B model ({size:.1f} GB), downloaded once from Hugging Face. Download it now?",
     "modello non scaricato": "model not downloaded",
@@ -346,7 +346,7 @@ T = {
     "Invio per cercare le ultime 50 partite.": "Enter to search the last 50 games.",
     "Stockfish sta analizzando le posizioni… {done}/{total}": "Stockfish is analysing the positions… {done}/{total}",
     "Rating stimato": "Estimated rating",
-    "chess-me · cerca le partite di un utente": "chess-me · search a user's games",
+    "chess-io · cerca le partite di un utente": "chess-io · search a user's games",
     "Lingua di interfaccia e commenti (F2 per cambiarla)": "Interface and comment language (F2 to change)",
     "Com'è andata": "How it went",
     "Consigli": "Advice",

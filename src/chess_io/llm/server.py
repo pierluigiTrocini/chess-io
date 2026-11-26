@@ -1,7 +1,7 @@
 """Gestione di llama-server e del modello.
 
-Il modello non è nel pacchetto: viene scaricato in LLM_MODEL_PATH (~/.local/share/chess-me/models) al primo
---llm, con verifica SHA256, e si elimina con `chess-me remove-model`. Il processo parte solo quando serve e si
+Il modello non è nel pacchetto: viene scaricato in LLM_MODEL_PATH (~/.local/share/chess-io/models) al primo
+--llm, con verifica SHA256, e si elimina con `chess-io remove-model`. Il processo parte solo quando serve e si
 ferma all'uscita della CLI.
 """
 import asyncio
@@ -38,7 +38,7 @@ download: dict = {"status": "idle", "done": 0, "total": 0, "error": None}  # idl
 
 
 def available() -> bool:
-    """Il binario llama-server è stato trovato (bundle, chess-me setup --llm o PATH)."""
+    """Il binario llama-server è stato trovato (bundle, chess-io setup --llm o PATH)."""
     return SERVER_PATH.is_file()
 
 

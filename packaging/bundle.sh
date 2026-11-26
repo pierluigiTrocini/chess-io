@@ -1,6 +1,6 @@
 #!/bin/sh
-# Costruisce la cartella self-contained di chess-me per la macchina corrente (macOS arm64 o Linux x86_64)
-# e l'archivio dist/chess-me-<versione>-<os>-<arch>.tar.gz (+ .sha256).
+# Costruisce la cartella self-contained di chess-io per la macchina corrente (macOS arm64 o Linux x86_64)
+# e l'archivio dist/chess-io-<versione>-<os>-<arch>.tar.gz (+ .sha256).
 #
 #   packaging/bundle.sh
 #   PYTHON=python3.12 packaging/bundle.sh
@@ -28,15 +28,15 @@ esac
 JOBS="$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 4)"
 
 mkdir -p "$WORK" "$DIST"
-VERSION="$(sed -n 's/^__version__ = "\(.*\)"/\1/p' "$ROOT/src/chess_me/__init__.py")"
-echo "== chess-me $VERSION per $NAME_OS-$ARCH"
+VERSION="$(sed -n 's/^__version__ = "\(.*\)"/\1/p' "$ROOT/src/chess_io/__init__.py")"
+echo "== chess-io $VERSION per $NAME_OS-$ARCH"
 
 # 1. ambiente Python per PyInstaller
 if [ ! -x "$WORK/venv/bin/python" ]; then "$PY" -m venv "$WORK/venv"; fi
 "$WORK/venv/bin/pip" install -q --upgrade pip
 "$WORK/venv/bin/pip" install -q "$ROOT[bundle]"
 
-# 2. Stockfish: release ufficiale pinnata con SHA256 (src/chess_me/data/binaries.toml) se c'è per questa piattaforma,
+# 2. Stockfish: release ufficiale pinnata con SHA256 (src/chess_io/data/binaries.toml) se c'è per questa piattaforma,
 #    altrimenti compilato dal sorgente
 check_stockfish() {
   out="$( (printf 'uci\nisready\ngo depth 8\n'; sleep 3; printf 'quit\n') | "$1" 2>&1 )"
@@ -46,10 +46,10 @@ check_stockfish() {
 }
 if [ ! -x "$WORK/stockfish" ]; then
   if "$WORK/venv/bin/python" -c \
-      "import sys; from chess_me import downloads; sys.exit(0 if downloads.entry('stockfish') else 1)"; then
+      "import sys; from chess_io import downloads; sys.exit(0 if downloads.entry('stockfish') else 1)"; then
     rm -rf "$WORK/sfhome"
-    CHESSME_HOME="$WORK/sfhome" "$WORK/venv/bin/python" -c \
-      "from chess_me import downloads; downloads.install_stockfish()"
+    CHESSIO_HOME="$WORK/sfhome" "$WORK/venv/bin/python" -c \
+      "from chess_io import downloads; downloads.install_stockfish()"
     cp "$WORK/sfhome/bin/stockfish" "$WORK/stockfish.tmp"
   else
     rm -rf "$WORK/sf"
@@ -79,17 +79,17 @@ fi
 
 # 4. database delle aperture
 if [ ! -f "$WORK/openings.sqlite" ]; then
-  "$WORK/venv/bin/python" -m chess_me.build_openings "$WORK/openings.sqlite"
+  "$WORK/venv/bin/python" -m chess_io.build_openings "$WORK/openings.sqlite"
 fi
 
 # 5. eseguibile Python (PyInstaller --onedir)
 ("$WORK/venv/bin/pyinstaller" --noconfirm --clean \
-  --distpath "$WORK/pyi-dist" --workpath "$WORK/pyi-work" "$ROOT/packaging/chess-me.spec")
+  --distpath "$WORK/pyi-dist" --workpath "$WORK/pyi-work" "$ROOT/packaging/chess-io.spec")
 
 # 6. assemblaggio
-OUT="$WORK/chess-me"
+OUT="$WORK/chess-io"
 rm -rf "$OUT"
-cp -R "$WORK/pyi-dist/chess-me" "$OUT"
+cp -R "$WORK/pyi-dist/chess-io" "$OUT"
 mkdir -p "$OUT/bin" "$OUT/share"
 cp "$WORK/stockfish" "$OUT/bin/stockfish"
 cp "$WORK/llama/llama-server" "$OUT/bin/llama-server"
@@ -98,8 +98,8 @@ cp "$ROOT/install.sh" "$OUT/install.sh"
 cp "$ROOT/packaging/README.txt" "$OUT/README.txt"
 echo "$VERSION" > "$OUT/VERSION"
 
-"$OUT/chess-me" doctor
-TAR="$DIST/chess-me-$VERSION-$NAME_OS-$ARCH.tar.gz"
-tar -C "$WORK" -czf "$TAR" chess-me
+"$OUT/chess-io" doctor
+TAR="$DIST/chess-io-$VERSION-$NAME_OS-$ARCH.tar.gz"
+tar -C "$WORK" -czf "$TAR" chess-io
 (cd "$DIST" && shasum -a 256 "$(basename "$TAR")" > "$(basename "$TAR").sha256")
 echo "== $TAR ($(du -h "$TAR" | cut -f1))"

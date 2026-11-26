@@ -11,18 +11,18 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent))
 from cli_fixtures import fake_review  # noqa: E402
 
-from chess_me import i18n, runtime  # noqa: E402
-from chess_me.locales import en, es  # noqa: E402
+from chess_io import i18n, runtime  # noqa: E402
+from chess_io.locales import en, es  # noqa: E402
 
-SRC = Path(__file__).parent.parent / "src" / "chess_me"
+SRC = Path(__file__).parent.parent / "src" / "chess_io"
 CATALOGS = {"en": en.T, "es": es.T}
 
 
 @pytest.fixture(autouse=True)
 def _italian_after(monkeypatch, tmp_path):
     """Ogni test parte e finisce in italiano, con dati utente in una cartella temporanea."""
-    monkeypatch.setenv("CHESSME_HOME", str(tmp_path))
-    monkeypatch.delenv("CHESSME_LANG", raising=False)
+    monkeypatch.setenv("CHESSIO_HOME", str(tmp_path))
+    monkeypatch.delenv("CHESSIO_LANG", raising=False)
     i18n.set_lang("it")
     yield
     i18n.set_lang("it")
@@ -41,9 +41,9 @@ def _msgids() -> set[str]:
                 ctx = next((k.value.value for k in n.keywords if k.arg == "_ctx"), None)
                 ids.add(f"{ctx}|{n.args[0].value}" if ctx else n.args[0].value)
     from textual.screen import Screen
-    from chess_me.explain import summary
-    from chess_me.llm import humanize
-    from chess_me.tui import review, screens, theme
+    from chess_io.explain import summary
+    from chess_io.llm import humanize
+    from chess_io.tui import review, screens, theme
     for table in (summary.CLASS_IT, summary.PHASE_IT, summary.PHASE_TIP, summary.TERMINATION_IT, summary.OUTCOME_IT,
                   humanize.CLASS_IT, theme.RESULT_IT, theme.TIME_CLASS_IT):
         ids |= set(table.values())
@@ -85,7 +85,7 @@ def test_tr_context_and_fallback():
 def test_resolve_order_and_save(monkeypatch):
     assert i18n.resolve() == "it" and i18n.saved() is None
     assert i18n.save("es") and i18n.saved() == "es" and i18n.resolve() == "es"
-    monkeypatch.setenv("CHESSME_LANG", "en_US.UTF-8")
+    monkeypatch.setenv("CHESSIO_LANG", "en_US.UTF-8")
     assert i18n.resolve() == "en"
     assert i18n.resolve("it") == "it"                 # --lang vince su tutto
     assert i18n.resolve("fr") == "en"                 # lingua non supportata: si ignora
@@ -95,7 +95,7 @@ def test_resolve_order_and_save(monkeypatch):
 # ---------- commenti e riassunto ----------
 def _blunder_facts():
     """3...Nf6?? nel matto del barbiere: concede Qxf7#, la migliore era g6 che para la minaccia."""
-    from chess_me.explain.facts import build_facts
+    from chess_io.explain.facts import build_facts
     b = chess.Board()
     for s in ("e4", "e5", "Bc4", "Nc6", "Qh5"):
         b.push_san(s)
@@ -116,13 +116,13 @@ def _blunder_facts():
     ("es", "Nf6?? Permite el mate en la jugada siguiente: 4. Qxf7#. Mejor g6, que para la amenaza Qxf7# (3...g6 4. Qf3)."),
 ])
 def test_move_comment_in_each_language(code, expected):
-    from chess_me.explain.templates import render
+    from chess_io.explain.templates import render
     i18n.set_lang(code)
     assert render(_blunder_facts()) == expected
 
 
 def test_describe_and_annotate_in_english_and_spanish():
-    from chess_me.explain.describe import annotate, describe_san
+    from chess_io.explain.describe import annotate, describe_san
     i18n.set_lang("en")
     assert describe_san("Nxe5") == "the knight takes on e5" and describe_san("O-O") == "kingside castling"
     assert describe_san("e8=Q+") == "the pawn to e8 promoting to a queen"
@@ -151,7 +151,7 @@ def test_summary_in_each_language(code, words):
 def test_prompt_examples_pass_the_check(code):
     """Gli esempi dei prompt devono superare il controllo della loro lingua, altrimenti insegnano al modello
     risposte che verrebbero scartate."""
-    from chess_me.llm import humanize, prompts
+    from chess_io.llm import humanize, prompts
     i18n.set_lang(code)
     p = prompts.load()
     assert prompts.path().name == ("prompts.toml" if code == "it" else f"prompts.{code}.toml")
@@ -166,7 +166,7 @@ def test_prompt_examples_pass_the_check(code):
 
 
 def test_llm_check_english_vocabulary():
-    from chess_me.llm.humanize import check
+    from chess_io.llm.humanize import check
     i18n.set_lang("en")
     tpl = "Bf4?? After exf4 you lose a bishop (the bishop on f4 falls). Better was Be3."
     assert check("Bf4 is a blunder: after exf4 the bishop is gone. Be3 was the move.", tpl, None, "blunder")["passed"]
@@ -178,7 +178,7 @@ def test_llm_check_english_vocabulary():
 
 # ---------- CLI ----------
 def test_cli_lang_command_and_option(capsys):
-    from chess_me import cli
+    from chess_io import cli
     assert cli.main(["lang"]) == 0 and capsys.readouterr().out.startswith("it")
     assert cli.main(["lang", "es"]) == 0
     assert "Español" in capsys.readouterr().out and i18n.saved() == "es"
@@ -197,11 +197,11 @@ def test_cli_lang_command_and_option(capsys):
 def test_search_screen_language_switch():
     pytest.importorskip("textual")
     from textual.widgets import Button, Input
-    from chess_me.tui.app import ChessMeApp
-    from chess_me.tui.screens import SearchScreen
+    from chess_io.tui.app import ChessIoApp
+    from chess_io.tui.screens import SearchScreen
 
     async def run():
-        app = ChessMeApp(None, None, None, 16, False)
+        app = ChessIoApp(None, None, None, 16, False)
         async with app.run_test(size=(120, 34)) as pilot:
             await pilot.pause()
             scr = app.screen
@@ -221,13 +221,13 @@ def test_search_screen_language_switch():
 
 def test_review_screen_in_english():
     pytest.importorskip("textual")
-    from chess_me import session
-    from chess_me.tui.app import ChessMeApp
+    from chess_io import session
+    from chess_io.tui.app import ChessIoApp
     i18n.set_lang("en")
     rv, c = fake_review()
 
     async def run():
-        app = ChessMeApp(session.Loaded([c], None, "test.pgn"), c, "white", 16, False, review=rv)
+        app = ChessIoApp(session.Loaded([c], None, "test.pgn"), c, "white", 16, False, review=rv)
         async with app.run_test(size=(110, 34)) as pilot:
             await pilot.pause()
             await pilot.press("end")

@@ -1,4 +1,4 @@
-from chess_me.llm.humanize import _clean, check
+from chess_io.llm.humanize import _clean, check
 
 TPL = "Bf4?? Dopo exf4 perdi un alfiere (l'alfiere in f4 cade). Meglio Be3 (12. Be3 Nf6 13. O-O)."
 FACTS = {"san": "Bf4", "best_san": "Be3", "refutation_first": "exf4", "best_line": "12. Be3 Nf6 13. O-O"}
@@ -48,7 +48,7 @@ def test_wrong_class_term_is_rejected():
 
 def test_summary_rewrite_keeps_only_verified_blocks(monkeypatch):
     import asyncio
-    from chess_me.llm import server, summarize
+    from chess_io.llm import server, summarize
 
     tpl = {
         "overview": "Hai giocato con il bianco contro rival. L'equilibrio si è rotto alla mossa 3 (Bf4).",
@@ -72,8 +72,8 @@ def test_summary_rewrite_keeps_only_verified_blocks(monkeypatch):
 
 
 def test_prompts_file_override(monkeypatch, tmp_path):
-    from chess_me import config
-    from chess_me.llm import prompts
+    from chess_io import config
+    from chess_io.llm import prompts
 
     assert prompts.load()["humanize"]["system"].startswith("Sei un istruttore")
     (tmp_path / "prompts.toml").write_text('[humanize]\nsystem = "prova"\nuser = "{classe}: {commento}"\n')
@@ -84,7 +84,7 @@ def test_prompts_file_override(monkeypatch, tmp_path):
 
 def test_solution_allows_motif_and_text_is_annotated(monkeypatch):
     import asyncio
-    from chess_me.llm import humanize, server
+    from chess_io.llm import humanize, server
 
     facts = {"cls": "mistake", "san": "Bf4", "mover": "white", "best_san": "Be3", "best_line": "12. Be3 Nf6",
              "best_fork": ["la torre", "il re"], "refutation_line": "12...exf4", "refutation_first": "exf4"}
